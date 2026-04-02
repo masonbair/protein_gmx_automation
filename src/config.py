@@ -1,28 +1,22 @@
 """
 Configuration for the GROMACS MD simulation pipeline.
 Edit paths and parameters here before running.
+
+Prerequisites: The user has already prepared the working folder with:
+  REC.pdb, LIG.pdb, LIG.itp, lig.itp, all .mdp files,
+  and the force field directory (e.g. charmm36-jul2022.ff/).
 """
 
 from pathlib import Path
 
 # --- Paths ---
-# Root working directory where the simulation will run
-WORK_DIR = Path.home() / "Desktop" / "programming" / "research_work"
-
-# Where raw input files live (REC.pdb, LIG.mol2, SwissParam zip, etc.)
-INPUT_DIR = WORK_DIR / "New MD general files"
-
-# Where the simulation will be executed (created by the script)
-SIM_DIR = WORK_DIR / "simulation"
+# The simulation working folder - should already contain all input files.
+# Change this to wherever your prepared GROMACS folder is.
+SIM_DIR = Path.home() / "Desktop" / "programming" / "research_work" / "simulation"
 
 # --- Input Filenames ---
 RECEPTOR_PDB = "REC.pdb"
-LIGAND_MOL2 = "LIG.mol2"
 LIGAND_NAME = "LIG"  # Name used in topology files
-
-# --- Force Field Selection (interactive prompt numbers) ---
-FORCE_FIELD = "8"   # CHARMM27
-WATER_MODEL = "1"   # TIP3P
 
 # --- Box Parameters ---
 BOX_DISTANCE = "1.0"    # nm from solute to box edge
@@ -39,11 +33,11 @@ MAXWARN = "2"
 VMD_COMMAND = "vmd"
 PAUSE_FOR_VISUALIZATION = True  # Set False to skip VMD pauses
 
-# --- MDP files ---
+# --- MDP Filenames (expected in SIM_DIR) ---
 MDP_FILES = {
-    "ions": INPUT_DIR / "ions_NN.mdp",
-    "em":   INPUT_DIR / "em.mdp",
-    "nvt":  INPUT_DIR / "NVT.mdp",
-    "npt":  INPUT_DIR / "NPT.mdp",
-    "md":   INPUT_DIR / "MD_10M.mdp",
+    "ions": "ions_NN.mdp",
+    "em":   "em.mdp",
+    "nvt":  "NVT.mdp",
+    "npt":  "NPT.mdp",
+    "md":   "MD_10M.mdp",
 }

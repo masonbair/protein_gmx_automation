@@ -1,108 +1,95 @@
 """
 File editing utilities for GROMACS input files.
 
-Handles mol2 cleanup, bond sorting, .gro merging, .top/.itp edits.
+Handles .gro merging and .top/.itp edits.
 """
 
 from pathlib import Path
 
 
-def clean_mol2_header(mol2_path: Path, molecule_name: str = "LIG"):
-    """
-    Clean a .mol2 file so that:
-    1. @<TRIPOS>MOLECULE is the very first line (remove any preceding junk).
-    2. The molecule name (line after @<TRIPOS>MOLECULE) is set to `molecule_name`.
+# ─── .gro file operations ───────────────────────────────────────────
 
+def merge_gro_files(base_gro: Path, insert_gro: Path):
+    """
+    Merge atom lines from insert_gro into base_gro.
+
+    .gro format:
+      Line 1: title
+      Line 2: number of atoms
+      Lines 3..N+2: atom lines (fixed-width columns)
+      Last line: box vectors
+
+    Inserts the atom lines from insert_gro before the box vector line
+    in base_gro and updates the atom count. Edits base_gro in-place.
+    """
+    base_lines = base_gro.read_text().splitlines()
+    insert_lines = insert_gro.read_text().splitlines()
+
+    # Parse base .gro
+    base_title = base_lines[0]
+    base_natoms = int(base_lines[1].strip())
+    base_atom_lines = base_lines[2:2 + base_natoms]
+    base_box = base_lines[2 + base_natoms]  # last line = box vectors
+
+    # Parse insert .gro
+    insert_natoms = int(insert_lines[1].strip())
+    insert_atom_lines = insert_lines[2:2 + insert_natoms]
+
+    # Merge
+    total_atoms = base_natoms + insert_natoms
+    merged = (
+        [base_title]
+        + [f"{total_atoms:>5d}"]
+        + base_atom_lines
+        + insert_atom_lines
+        + [base_box]
+    )
+
+    base_gro.write_text("\n".join(merged) + "\n")
+    print(f"  Merged {insert_natoms} atoms from {insert_gro.name} into {base_gro.name} "
+          f"(total: {total_atoms})")
+
+
+# ─── .top / .itp file operations ────────────────────────────────────
+
+def insert_after_line(file_path: Path, search_text: str, insert_text: str):
+    """
+    Insert text after the first line containing `search_text`.
     Edits the file in-place.
     """
-    lines = mol2_path.read_text().splitlines(keepends=True)
-
-    # Find the first @<TRIPOS>MOLECULE line
-    start = None
+    lines = file_path.read_text().splitlines(keepends=True)
     for i, line in enumerate(lines):
-        if "@<TRIPOS>MOLECULE" in line:
-            start = i
-            break
-
-    if start is None:
-        raise ValueError(f"No @<TRIPOS>MOLECULE found in {mol2_path}")
-
-    # Strip everything before it
-    lines = lines[start:]
-
-    # The molecule name is the line immediately after @<TRIPOS>MOLECULE
-    if len(lines) < 2:
-        raise ValueError(f"Unexpected end of file after @<TRIPOS>MOLECULE in {mol2_path}")
-
-    lines[1] = molecule_name + "\n"
-
-    mol2_path.write_text("".join(lines))
-    print(f"  Cleaned header and set molecule name to '{molecule_name}' in {mol2_path.name}")
+        if search_text in line:
+            lines.insert(i + 1, insert_text if insert_text.endswith("\n") else insert_text + "\n")
+            file_path.write_text("".join(lines))
+            print(f"  Inserted text after '{search_text.strip()}' in {file_path.name}")
+            return
+    raise ValueError(f"'{search_text}' not found in {file_path}")
 
 
-def sort_mol2_bonds(mol2_path: Path, output_path: Path | None = None):
+def append_to_molecules_section(top_path: Path, molecule_name: str, count: int = 1):
     """
-    Python port of sort_mol2_bonds.pl by Justin Lemkul.
-
-    Reorders the @<TRIPOS>BOND section so that:
-    1. Atoms on each bond line are in increasing order (e.g. 1 2, not 2 1).
-    2. Bonds appear in order of ascending first atom number.
-    3. For bonds with the same first atom, sorted by ascending second atom.
-
-    If output_path is None, edits in-place.
+    Append a molecule entry (e.g. 'LIG          1') to the [ molecules ] section
+    at the bottom of a .top file.
     """
-    if output_path is None:
-        output_path = mol2_path
+    content = top_path.read_text()
+    entry = f"{molecule_name:<20s} {count}\n"
+    content = content.rstrip("\n") + "\n" + entry
+    top_path.write_text(content)
+    print(f"  Appended '{molecule_name} {count}' to [ molecules ] in {top_path.name}")
 
-    lines = mol2_path.read_text().splitlines()
 
-    # Ensure file starts with @<TRIPOS>
-    if not lines[0].strip().startswith("@<TRIPOS>"):
-        raise ValueError(
-            f"Nonstandard header: '{lines[0]}'. "
-            "Run clean_mol2_header() first to remove header lines."
-        )
-
-    # Get atom and bond counts from line index 2 (third line of file)
-    counts = lines[2].split()
-    natom = int(counts[0])
-    nbond = int(counts[1])
-    print(f"  Found {natom} atoms, {nbond} bonds in {mol2_path.name}")
-
-    # Split file into pre-bond section and bond section
-    bond_header_idx = None
-    for i, line in enumerate(lines):
-        if "@<TRIPOS>BOND" in line:
-            bond_header_idx = i
-            break
-
-    if bond_header_idx is None:
-        raise ValueError(f"No @<TRIPOS>BOND section found in {mol2_path}")
-
-    pre_bond = lines[:bond_header_idx + 1]  # everything up to and including @<TRIPOS>BOND
-    bond_lines_raw = lines[bond_header_idx + 1: bond_header_idx + 1 + nbond]
-
-    # Parse bonds: normalize atom order so ai < aj
-    bonds = []
-    for line in bond_lines_raw:
-        parts = line.split()
-        # parts: [bond_id, atom_i, atom_j, bond_type]
-        ai = int(parts[1])
-        aj = int(parts[2])
-        bond_type = parts[3]
-        if aj < ai:
-            ai, aj = aj, ai
-        bonds.append((ai, aj, bond_type))
-
-    # Sort by first atom, then second atom
-    bonds.sort(key=lambda b: (b[0], b[1]))
-
-    # Rebuild bond lines with renumbered bond IDs
-    sorted_bond_lines = []
-    for idx, (ai, aj, btype) in enumerate(bonds, start=1):
-        sorted_bond_lines.append(f"{idx:6d}{ai:6d}{aj:6d} {btype}")
-
-    # Write output
-    output_text = "\n".join(pre_bond + sorted_bond_lines) + "\n"
-    output_path.write_text(output_text)
-    print(f"  Sorted {nbond} bonds in {output_path.name}")
+def replace_moleculetype_name(itp_path: Path, old_name: str, new_name: str):
+    """
+    In a .itp file, replace the molecule name in the [ moleculetype ] section.
+    e.g. 'lig_gmx2 3' -> 'LIG 3'
+    """
+    content = itp_path.read_text()
+    if old_name not in content:
+        if new_name in content:
+            print(f"  {itp_path.name} already has moleculetype name '{new_name}', skipping.")
+            return
+        raise ValueError(f"'{old_name}' not found in {itp_path}")
+    content = content.replace(old_name, new_name, 1)
+    itp_path.write_text(content)
+    print(f"  Renamed moleculetype '{old_name}' -> '{new_name}' in {itp_path.name}")

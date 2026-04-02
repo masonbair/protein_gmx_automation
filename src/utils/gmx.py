@@ -4,6 +4,7 @@ Wrapper for running GROMACS (gmx) commands via subprocess.
 Handles:
 - Running gmx commands with arguments
 - Piping interactive selections via stdin
+- Interactive mode: show gmx prompts and let the user choose
 - Logging command output
 - Error checking
 """
@@ -14,7 +15,8 @@ from pathlib import Path
 
 
 def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
-            work_dir: Path | None = None, maxwarn: str | None = None) -> subprocess.CompletedProcess:
+            work_dir: Path | None = None, maxwarn: str | None = None,
+            interactive: bool = False) -> subprocess.CompletedProcess:
     """
     Run a gmx subcommand.
 
@@ -26,11 +28,14 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
         Arguments to pass after `gmx <command>`.
     stdin_lines : list[str] or None
         Lines to feed to stdin for interactive prompts.
-        E.g. ["8", "1"] to select force field 8 then water model 1.
+        Ignored if interactive=True.
     work_dir : Path or None
         Working directory for the command. Defaults to cwd.
     maxwarn : str or None
         If set, appends -maxwarn <value> to the args.
+    interactive : bool
+        If True, connects gmx directly to the terminal so the user
+        can see prompts and type selections themselves.
 
     Returns
     -------
@@ -40,29 +45,35 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
     if maxwarn is not None:
         cmd.extend(["-maxwarn", maxwarn])
 
-    stdin_text = None
-    if stdin_lines:
-        stdin_text = "\n".join(stdin_lines) + "\n"
-
     print(f"\n{'='*60}")
     print(f"Running: {' '.join(cmd)}")
-    if stdin_lines:
+    if interactive:
+        print("  (interactive — follow the prompts below)")
+    elif stdin_lines:
         print(f"  stdin: {stdin_lines}")
     print(f"{'='*60}")
 
-    result = subprocess.run(
-        cmd,
-        input=stdin_text,
-        cwd=work_dir,
-        text=True,
-        capture_output=True,
-    )
+    if interactive:
+        # Let gmx talk directly to the user's terminal
+        result = subprocess.run(cmd, cwd=work_dir)
+    else:
+        stdin_text = None
+        if stdin_lines:
+            stdin_text = "\n".join(stdin_lines) + "\n"
 
-    # gmx writes most output to stderr
-    if result.stdout.strip():
-        print(result.stdout)
-    if result.stderr.strip():
-        print(result.stderr)
+        result = subprocess.run(
+            cmd,
+            input=stdin_text,
+            cwd=work_dir,
+            text=True,
+            capture_output=True,
+        )
+
+        # gmx writes most output to stderr
+        if result.stdout.strip():
+            print(result.stdout)
+        if result.stderr.strip():
+            print(result.stderr)
 
     if result.returncode != 0:
         print(f"\nERROR: gmx {command} exited with code {result.returncode}", file=sys.stderr)

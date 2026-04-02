@@ -14,16 +14,15 @@ from steps.step_01_prepare_ligand import run as step_01
 
 
 STEPS = {
-    1: ("Prepare Ligand",    step_01),
-    # 2: ("Prepare Receptor",  step_02),
-    # 3: ("Combine System",    step_03),
-    # 4: ("Solvate",           step_04),
-    # 5: ("Energy Minimization", step_05),
-    # 6: ("Indexing",          step_06),
-    # 7: ("NVT Equilibration", step_07),
-    # 8: ("NPT Equilibration", step_08),
-    # 9: ("Production MD",     step_09),
-    # 10: ("Analysis",         step_10),
+    1: ("Receptor Topology & Ligand Conversion", step_01),
+    # 2: ("Edit Topology & ITP Files",            step_02),
+    # 3: ("Solvate & Add Ions",                   step_03),
+    # 4: ("Energy Minimization",                  step_04),
+    # 5: ("Indexing & Restraints",                step_05),
+    # 6: ("NVT Equilibration",                    step_06),
+    # 7: ("NPT Equilibration",                    step_07),
+    # 8: ("Production MD",                        step_08),
+    # 9: ("Post-MD Analysis",                     step_09),
 }
 
 
