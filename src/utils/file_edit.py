@@ -50,22 +50,7 @@ def merge_gro_files(base_gro: Path, insert_gro: Path):
           f"(total: {total_atoms})")
 
 
-# ─── .top / .itp file operations ────────────────────────────────────
-
-def insert_after_line(file_path: Path, search_text: str, insert_text: str):
-    """
-    Insert text after the first line containing `search_text`.
-    Edits the file in-place.
-    """
-    lines = file_path.read_text().splitlines(keepends=True)
-    for i, line in enumerate(lines):
-        if search_text in line:
-            lines.insert(i + 1, insert_text if insert_text.endswith("\n") else insert_text + "\n")
-            file_path.write_text("".join(lines))
-            print(f"  Inserted text after '{search_text.strip()}' in {file_path.name}")
-            return
-    raise ValueError(f"'{search_text}' not found in {file_path}")
-
+# ─── .top file operations ────────────────────────────────────────────
 
 def append_to_molecules_section(top_path: Path, molecule_name: str, count: int = 1):
     """
@@ -77,19 +62,3 @@ def append_to_molecules_section(top_path: Path, molecule_name: str, count: int =
     content = content.rstrip("\n") + "\n" + entry
     top_path.write_text(content)
     print(f"  Appended '{molecule_name} {count}' to [ molecules ] in {top_path.name}")
-
-
-def replace_moleculetype_name(itp_path: Path, old_name: str, new_name: str):
-    """
-    In a .itp file, replace the molecule name in the [ moleculetype ] section.
-    e.g. 'lig_gmx2 3' -> 'LIG 3'
-    """
-    content = itp_path.read_text()
-    if old_name not in content:
-        if new_name in content:
-            print(f"  {itp_path.name} already has moleculetype name '{new_name}', skipping.")
-            return
-        raise ValueError(f"'{old_name}' not found in {itp_path}")
-    content = content.replace(old_name, new_name, 1)
-    itp_path.write_text(content)
-    print(f"  Renamed moleculetype '{old_name}' -> '{new_name}' in {itp_path.name}")
