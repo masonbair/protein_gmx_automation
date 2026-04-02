@@ -12,7 +12,7 @@ from pathlib import Path
 # --- Paths ---
 # The simulation working folder - should already contain all input files.
 # Change this to wherever your prepared GROMACS folder is.
-SIM_DIR = Path.home() / "protein_gmx_automation" / "src" / "simulation"
+SIM_DIR = Path.home() / "protein_gmx_automation" / "simulation"
 
 # --- Input Filenames ---
 RECEPTOR_PDB = "REC.pdb"
