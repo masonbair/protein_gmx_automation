@@ -41,8 +41,24 @@ VMD_CMD  = {vmd_cmd!r}
 env = os.environ.copy()
 env["DISPLAY"] = DISPLAY
 
-print(f"[vmd_job] opening {{FILENAME}} on DISPLAY={{DISPLAY}}", flush=True)
-rc = subprocess.run([VMD_CMD, FILENAME], env=env).returncode
+# Without a controlling terminal, VMD's Tcl interpreter hits EOF on stdin
+# and exits instantly. We feed it a keep-alive script via -e that parks it
+# in Tk's event loop until the user closes the GUI window (exitFlag is
+# flipped by an on-close handler on the main display window).
+keepalive = '''
+after idle {{
+    set ::exitFlag 0
+    wm protocol .vmd.main WM_DELETE_WINDOW {{ set ::exitFlag 1 }}
+    vwait ::exitFlag
+    quit
+}}
+'''
+with open("keepalive.tcl", "w") as f:
+    f.write(keepalive)
+
+cmd = [VMD_CMD, FILENAME, "-e", "keepalive.tcl"]
+print(f"[vmd_job] launching: {{' '.join(cmd)}} on DISPLAY={{DISPLAY}}", flush=True)
+rc = subprocess.run(cmd, env=env).returncode
 print(f"[vmd_job] VMD exited with code {{rc}}", flush=True)
 sys.exit(rc)
 """
