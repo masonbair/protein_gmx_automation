@@ -10,14 +10,15 @@ Usage:
 import argparse
 import sys
 
-from steps.step_01_prepare_ligand import run as step_01
-from steps.step_02_edit_topology import run as step_02
+from research_work.steps.step_01_prepare_ligand import run as step_01
+from research_work.steps.step_02_edit_topology import run as step_02
+from research_work.steps.step_03_add_ions import run as step_03
 
 
 STEPS = {
     1: ("Receptor Topology & Ligand Conversion", step_01),
     2: ("Edit Topology & ITP Files",             step_02),
-    # 3: ("Solvate & Add Ions",                   step_03),
+    # 3: ("Solvate & Add Ions",                    step_03),
     # 4: ("Energy Minimization",                  step_04),
     # 5: ("Indexing & Restraints",                step_05),
     # 6: ("NVT Equilibration",                    step_06),

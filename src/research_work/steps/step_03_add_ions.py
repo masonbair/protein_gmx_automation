@@ -7,14 +7,9 @@ Corresponds to tutorial lines 180-193:
       (select SOL group, e.g. "15")
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
-from utils.gmx import run_gmx
-from utils.visualize import visualize
+from research_work.config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
+from research_work.utils.gmx import run_gmx
+from research_work.utils.visualize import visualize
 
 
 def grompp_ions():

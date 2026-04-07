@@ -19,7 +19,7 @@ from pathlib import Path
 
 from ray.job_submission import JobStatus, JobSubmissionClient
 
-from config import (
+from research_work.config import (
     PAUSE_FOR_VISUALIZATION,
     RAY_JOBS_ADDRESS,
     XPRA_DISPLAY,

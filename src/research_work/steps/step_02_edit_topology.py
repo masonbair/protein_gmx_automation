@@ -10,14 +10,11 @@ Corresponds to tutorial lines 135-171:
 
 import re
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from config import SIM_DIR, LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
-from utils.gmx import run_gmx
-from utils.file_edit import append_to_molecules_section
-from utils.visualize import visualize
+from research_work.config import SIM_DIR, LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
+from research_work.utils.gmx import run_gmx
+from research_work.utils.file_edit import append_to_molecules_section
+from research_work.utils.visualize import visualize
 
 
 def edit_topol_add_ligand_include():

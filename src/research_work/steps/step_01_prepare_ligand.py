@@ -12,13 +12,10 @@ Prerequisites (user has already done manually):
 """
 
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from config import SIM_DIR, RECEPTOR_PDB
-from utils.gmx import run_gmx
-from utils.file_edit import merge_gro_files
+from research_work.config import SIM_DIR, RECEPTOR_PDB
+from research_work.utils.gmx import run_gmx
+from research_work.utils.file_edit import merge_gro_files
 
 
 def verify_inputs():
