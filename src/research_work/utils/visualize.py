@@ -41,17 +41,19 @@ VMD_CMD  = {vmd_cmd!r}
 env = os.environ.copy()
 env["DISPLAY"] = DISPLAY
 
-# Without a controlling terminal, VMD's Tcl interpreter hits EOF on stdin
-# and exits instantly. We feed it a keep-alive script via -e that parks it
-# in Tk's event loop until the user closes the GUI window (exitFlag is
-# flipped by an on-close handler on the main display window).
-keepalive = "vwait forever\\n"
-with open("keepalive.tcl", "w") as f:
-    f.write(keepalive)
-
-cmd = [VMD_CMD, FILENAME, "-e", "keepalive.tcl"]
+# VMD has its own C++ main loop that handles mouse input on the OpenGL
+# window. If we block Tcl with `vwait forever`, that loop never runs and
+# the molecule is frozen. The right approach is to let VMD run normally
+# and just keep its stdin from hitting EOF (which would cause it to
+# exit immediately under a non-interactive Ray job).
+#
+# We give VMD a stdin pipe that we never write to and never close. VMD
+# sees an open stdin, runs its full event loop (mouse + Tk + redraw),
+# and only exits when the user closes the OpenGL display window.
+cmd = [VMD_CMD, FILENAME]
 print(f"[vmd_job] launching: {{' '.join(cmd)}} on DISPLAY={{DISPLAY}}", flush=True)
-rc = subprocess.run(cmd, env=env).returncode
+proc = subprocess.Popen(cmd, env=env, stdin=subprocess.PIPE)
+rc = proc.wait()
 print(f"[vmd_job] VMD exited with code {{rc}}", flush=True)
 sys.exit(rc)
 """
