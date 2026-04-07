@@ -46,10 +46,10 @@ env["DISPLAY"] = DISPLAY
 # in Tk's event loop until the user closes the GUI window (exitFlag is
 # flipped by an on-close handler on the main display window).
 keepalive = '''
-after idle {
-    while {[llength [molinfo list]] > 0} { after 500 }
+after idle {{
+    while {{[llength [molinfo list]] > 0}} {{ after 500 }}
     quit
-}
+}}
 '''
 with open("keepalive.tcl", "w") as f:
     f.write(keepalive)
