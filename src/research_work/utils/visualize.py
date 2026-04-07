@@ -46,21 +46,34 @@ env["DISPLAY"] = DISPLAY
 # in Tk's event loop until the user closes the GUI window (exitFlag is
 # flipped by an on-close handler on the main display window).
 keepalive = '''
-after idle {{
+set ::exitFlag 0
+
+# `after idle` fires before VMD 2.0 has finished registering its menu
+# subsystem, so `menu main on` silently no-ops and the window comes up
+# black. Delay the call with a real timer, and retry a few times in
+# case the first attempt is still too early.
+proc ::showMenus {{tries}} {{
+    if {{[catch {{ menu main on }}] && $tries > 0}} {{
+        after 500 [list ::showMenus [expr {{$tries - 1}}]]
+        return
+    }}
     catch {{ menu main on }}
     catch {{ menu graphics on }}
-    set ::exitFlag 0
-    proc ::checkMols {{}} {{
-        if {{[llength [molinfo list]] == 0}} {{
-            set ::exitFlag 1
-        }} else {{
-            after 500 ::checkMols
-        }}
-    }}
-    after 500 ::checkMols
-    vwait ::exitFlag
-    quit
 }}
+after 1500 [list ::showMenus 5]
+
+# Poll molecule count; exit when the user deletes the loaded molecule.
+proc ::checkMols {{}} {{
+    if {{[llength [molinfo list]] == 0}} {{
+        set ::exitFlag 1
+    }} else {{
+        after 500 ::checkMols
+    }}
+}}
+after 2000 ::checkMols
+
+vwait ::exitFlag
+quit
 '''
 with open("keepalive.tcl", "w") as f:
     f.write(keepalive)
