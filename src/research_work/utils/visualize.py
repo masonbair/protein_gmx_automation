@@ -47,7 +47,18 @@ env["DISPLAY"] = DISPLAY
 # flipped by an on-close handler on the main display window).
 keepalive = '''
 after idle {{
-    while {{[llength [molinfo list]] > 0}} {{ after 500 }}
+    catch {{ menu main on }}
+    catch {{ menu graphics on }}
+    set ::exitFlag 0
+    proc ::checkMols {{}} {{
+        if {{[llength [molinfo list]] == 0}} {{
+            set ::exitFlag 1
+        }} else {{
+            after 500 ::checkMols
+        }}
+    }}
+    after 500 ::checkMols
+    vwait ::exitFlag
     quit
 }}
 '''
