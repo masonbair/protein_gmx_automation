@@ -32,6 +32,12 @@ MAXWARN = "2"
 # --- Visualization ---
 VMD_COMMAND = "vmd"
 PAUSE_FOR_VISUALIZATION = True  # Set False to skip VMD pauses
+# Ray Jobs API (dashboard) on xrpa-ray-container. Port 8265 is published
+# by the container. Use the host gateway if the submitter runs in a
+# sibling container (e.g. "http://host.docker.internal:8265" on Docker
+# Desktop, or "http://172.17.0.1:8265" on a Linux default bridge).
+RAY_JOBS_ADDRESS = "http://localhost:8265"
+XPRA_DISPLAY = ":80"
 
 # --- MDP Filenames (expected in SIM_DIR) ---
 MDP_FILES = {

@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import SIM_DIR, LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
 from utils.gmx import run_gmx
 from utils.file_edit import append_to_molecules_section
+from utils.visualize import visualize
 
 
 def edit_topol_add_ligand_include():
@@ -155,7 +156,8 @@ def run():
     print("\n[2e] Solvating the system...")
     solvate()
 
-    print("\nStep 2 complete. Visualize box_sol.gro before continuing.")
+    print("\nStep 2 complete.")
+    visualize(SIM_DIR / "box_sol.gro", label="after solvate")
 
 
 if __name__ == "__main__":
