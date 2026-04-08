@@ -7,9 +7,14 @@ Corresponds to tutorial lines 180-193:
       (select SOL group, e.g. "15")
 """
 
+import logging
+
 from research_work.config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
 from research_work.utils.gmx import run_gmx
 from research_work.utils.visualize import visualize
+
+
+logger = logging.getLogger(__name__)
 
 
 def grompp_ions():
@@ -27,7 +32,7 @@ def grompp_ions():
         work_dir=SIM_DIR,
         maxwarn=MAXWARN,
     )
-    print("  -> Produced: ION.tpr")
+    logger.info("  -> Produced: ION.tpr")
 
 
 def genion():
@@ -47,21 +52,21 @@ def genion():
         stdin_lines=[GENION_GROUP],
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: box_sol_ion.gro")
+    logger.info("  -> Produced: box_sol_ion.gro")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 3: Add Ions (Neutralize System)")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 3: Add Ions (Neutralize System)")
+    logger.info("%s", "=" * 60)
 
-    print("\n[3a] Assembling ION.tpr with grompp...")
+    logger.info("[3a] Assembling ION.tpr with grompp...")
     grompp_ions()
 
-    print("\n[3b] Replacing solvent with ions (genion)...")
+    logger.info("[3b] Replacing solvent with ions (genion)...")
     genion()
 
-    print("\nStep 3 complete.")
+    logger.info("Step 3 complete.")
     visualize(SIM_DIR / "box_sol_ion.gro", label="after genion")
 
 

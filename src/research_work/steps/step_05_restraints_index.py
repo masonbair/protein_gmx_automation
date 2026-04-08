@@ -13,9 +13,14 @@ Corresponds to tutorial lines 203-240:
         > q
 """
 
+import logging
+
 from research_work.config import SIM_DIR
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import add_ligand_posres_include
+
+
+logger = logging.getLogger(__name__)
 
 
 def ligand_itp_has_inline_restraints() -> bool:
@@ -39,15 +44,15 @@ def make_ligand_index():
     gmx make_ndx -f LIG.gro -o index_LIG.ndx
     Interactive — user types selection (typically '0 & ! a H*' then 'q').
     """
-    print("\n  Suggested selection: '0 & ! a H*'  then  'q'")
-    print("  (creates a non-hydrogen ligand group used for restraints)")
+    logger.info("  Suggested selection: '0 & ! a H*'  then  'q'")
+    logger.info("  (creates a non-hydrogen ligand group used for restraints)")
     run_gmx(
         "make_ndx",
         ["-f", "LIG.gro", "-o", "index_LIG.ndx"],
         work_dir=SIM_DIR,
         interactive=True,
     )
-    print("  -> Produced: index_LIG.ndx")
+    logger.info("  -> Produced: index_LIG.ndx")
 
 
 def genrestr_ligand():
@@ -55,7 +60,7 @@ def genrestr_ligand():
     gmx genrestr -f LIG.gro -n index_LIG.ndx -o posre_LIG.itp -fc 1000 1000 1000
     Interactive — user picks the non-H ligand group from the printed list.
     """
-    print("\n  Pick the non-hydrogen ligand group you just created (often group 3).")
+    logger.info("  Pick the non-hydrogen ligand group you just created (often group 3).")
     run_gmx(
         "genrestr",
         [
@@ -67,7 +72,7 @@ def genrestr_ligand():
         work_dir=SIM_DIR,
         interactive=True,
     )
-    print("  -> Produced: posre_LIG.itp")
+    logger.info("  -> Produced: posre_LIG.itp")
 
 
 def edit_topology_for_ligand_posres():
@@ -85,43 +90,42 @@ def make_system_index():
     then 'q'. Group numbers depend on the system, so the user should read
     the printed list before choosing.
     """
-    print("\n  Read the printed group list, then type the combination you want.")
-    print("  Typical: 'Protein | LIG' (e.g. '1 | 13'), then 'q'.")
+    logger.info("  Read the printed group list, then type the combination you want.")
+    logger.info("  Typical: 'Protein | LIG' (e.g. '1 | 13'), then 'q'.")
     run_gmx(
         "make_ndx",
         ["-f", "EM.gro", "-o", "index.ndx"],
         work_dir=SIM_DIR,
         interactive=True,
     )
-    print("  -> Produced: index.ndx")
+    logger.info("  -> Produced: index.ndx")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 5: Ligand Restraints & System Index")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 5: Ligand Restraints & System Index")
+    logger.info("%s", "=" * 60)
 
     if ligand_itp_has_inline_restraints():
-        print("\n  LIG.itp already contains inline position restraints "
-              "(POSRES_LIGAND block).")
-        print("  Skipping ligand index, genrestr, and topol.top edit — they would")
-        print("  duplicate the existing restraints and break grompp.")
-        print("  IMPORTANT: make sure NVT.mdp / NPT.mdp activate the macro, e.g.:")
-        print("      define = -DPOSRES -DPOSRES_LIGAND")
+        logger.info("  LIG.itp already contains inline position restraints (POSRES_LIGAND block).")
+        logger.info("  Skipping ligand index, genrestr, and topol.top edit - they would")
+        logger.info("  duplicate the existing restraints and break grompp.")
+        logger.info("  IMPORTANT: make sure NVT.mdp / NPT.mdp activate the macro, e.g.:")
+        logger.info("      define = -DPOSRES -DPOSRES_LIGAND")
     else:
-        print("\n[5a] Building ligand index file...")
+        logger.info("[5a] Building ligand index file...")
         make_ligand_index()
 
-        print("\n[5b] Generating ligand position restraints...")
+        logger.info("[5b] Generating ligand position restraints...")
         genrestr_ligand()
 
-        print("\n[5c] Adding ligand POSRES include to LIG.itp...")
+        logger.info("[5c] Adding ligand POSRES include to LIG.itp...")
         edit_topology_for_ligand_posres()
 
-    print("\n[5d] Building system index file (Protein + LIG combo)...")
+    logger.info("[5d] Building system index file (Protein + LIG combo)...")
     make_system_index()
 
-    print("\nStep 5 complete.")
+    logger.info("Step 5 complete.")
 
 
 if __name__ == "__main__":

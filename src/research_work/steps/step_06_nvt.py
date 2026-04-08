@@ -6,8 +6,13 @@ Step 6: NVT equilibration.
   - gmx mdrun -deffnm NVT
 """
 
+import logging
+
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
 from research_work.utils.gmx import run_gmx
+
+
+logger = logging.getLogger(__name__)
 
 
 def grompp_nvt():
@@ -23,30 +28,30 @@ def grompp_nvt():
     if result.returncode == 0:
         return
     if "warning" in (result.stderr or "").lower():
-        print(f"\n  grompp failed with warnings — retrying with -maxwarn {MAXWARN}.")
+        logger.warning("  grompp failed with warnings - retrying with -maxwarn %s.", MAXWARN)
         run_gmx("grompp", base_args, work_dir=SIM_DIR, maxwarn=MAXWARN)
     else:
-        print("\nERROR: grompp failed for reasons other than warnings.")
+        logger.error("grompp failed for reasons other than warnings.")
         raise SystemExit(1)
 
 
 def mdrun_nvt():
     run_gmx("mdrun", ["-deffnm", "NVT"], work_dir=SIM_DIR)
-    print("  -> Produced: NVT.gro, NVT.edr, NVT.cpt, NVT.log, NVT.trr")
+    logger.info("  -> Produced: NVT.gro, NVT.edr, NVT.cpt, NVT.log, NVT.trr")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 6: NVT Equilibration")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 6: NVT Equilibration")
+    logger.info("%s", "=" * 60)
 
-    print("\n[6a] Assembling NVT.tpr with grompp...")
+    logger.info("[6a] Assembling NVT.tpr with grompp...")
     grompp_nvt()
 
-    print("\n[6b] Running NVT equilibration (mdrun)...")
+    logger.info("[6b] Running NVT equilibration (mdrun)...")
     mdrun_nvt()
 
-    print("\nStep 6 complete.")
+    logger.info("Step 6 complete.")
 
 
 if __name__ == "__main__":

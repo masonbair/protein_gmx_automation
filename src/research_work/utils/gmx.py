@@ -9,9 +9,12 @@ Handles:
 - Error checking
 """
 
+import logging
 import subprocess
-import sys
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
@@ -45,13 +48,14 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
     if maxwarn is not None:
         cmd.extend(["-maxwarn", maxwarn])
 
-    print(f"\n{'='*60}")
-    print(f"Running: {' '.join(cmd)}")
+    logger.info("%s", "=" * 60)
+    logger.info("Running: %s", " ".join(cmd))
     if interactive:
-        print("  (interactive — follow the prompts below)")
+        logger.info("  (interactive - follow the prompts below)")
+        logger.info("  (interactive subprocess output is shown in terminal)")
     elif stdin_lines:
-        print(f"  stdin: {stdin_lines}")
-    print(f"{'='*60}")
+        logger.info("  stdin: %s", stdin_lines)
+    logger.info("%s", "=" * 60)
 
     if interactive:
         # Let gmx talk directly to the user's terminal
@@ -71,31 +75,31 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
 
         # gmx writes most output to stderr
         if result.stdout.strip():
-            print(result.stdout)
+            logger.info("stdout:\n%s", result.stdout.strip())
         if result.stderr.strip():
-            print(result.stderr)
+            logger.info("stderr:\n%s", result.stderr.strip())
 
     if result.returncode != 0 and check:
-        print(f"\nERROR: gmx {command} exited with code {result.returncode}", file=sys.stderr)
-        sys.exit(1)
+        logger.error("gmx %s exited with code %s", command, result.returncode)
+        raise SystemExit(1)
 
     return result
 
 
 def run_shell(cmd: str, work_dir: Path | None = None) -> subprocess.CompletedProcess:
     """Run an arbitrary shell command (for non-gmx tools like vmd, xmgrace)."""
-    print(f"\nRunning: {cmd}")
+    logger.info("Running shell command: %s", cmd)
     result = subprocess.run(
         cmd, shell=True, cwd=work_dir, text=True, capture_output=True,
     )
     if result.stdout.strip():
-        print(result.stdout)
+        logger.info("stdout:\n%s", result.stdout.strip())
     if result.stderr.strip():
-        print(result.stderr)
+        logger.info("stderr:\n%s", result.stderr.strip())
     return result
 
 
 def pause(message: str = "Press Enter to continue..."):
     """Pause execution and wait for user input."""
-    print(f"\n>>> {message}")
+    logger.info(">>> %s", message)
     input()

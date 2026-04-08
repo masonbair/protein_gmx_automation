@@ -8,8 +8,10 @@ Usage:
 """
 
 import argparse
+import logging
 import sys
 
+from research_work.config import SIM_DIR
 from research_work.steps.step_01_prepare_ligand import run as step_01
 from research_work.steps.step_02_edit_topology import run as step_02
 from research_work.steps.step_03_add_ions import run as step_03
@@ -18,6 +20,7 @@ from research_work.steps.step_05_restraints_index import run as step_05
 from research_work.steps.step_06_nvt import run as step_06
 from research_work.steps.step_07_npt import run as step_07
 from research_work.steps.step_08_production_md import run as step_08
+from research_work.utils.logging_setup import setup_logging
 
 
 STEPS = {
@@ -33,18 +36,24 @@ STEPS = {
 }
 
 
+logger = logging.getLogger(__name__)
+
+
 def main():
     parser = argparse.ArgumentParser(description="GROMACS MD Simulation Pipeline")
     parser.add_argument("--step", type=int, help="Run only this step")
     parser.add_argument("--from", dest="from_step", type=int, help="Start from this step")
     args = parser.parse_args()
 
+    log_file = setup_logging(SIM_DIR / "logs")
+    logger.info("Logging to file: %s", log_file)
+
     if args.step:
         if args.step not in STEPS:
-            print(f"Unknown step {args.step}. Available: {list(STEPS.keys())}")
+            logger.error("Unknown step %s. Available: %s", args.step, list(STEPS.keys()))
             sys.exit(1)
         name, func = STEPS[args.step]
-        print(f"\n>>> Running step {args.step}: {name}")
+        logger.info(">>> Running step %s: %s", args.step, name)
         func()
     else:
         start = args.from_step or 1
@@ -52,12 +61,12 @@ def main():
             if step_num < start:
                 continue
             name, func = STEPS[step_num]
-            print(f"\n>>> Running step {step_num}: {name}")
+            logger.info(">>> Running step %s: %s", step_num, name)
             func()
 
-    print("\n" + "=" * 60)
-    print("Pipeline complete.")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("Pipeline complete.")
+    logger.info("%s", "=" * 60)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ Corresponds to tutorial lines 135-171:
   - gmx editconf: create triclinic box around the system
 """
 
+import logging
 import re
 import sys
 
@@ -15,6 +16,9 @@ from research_work.config import SIM_DIR, LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import append_to_molecules_section
 from research_work.utils.visualize import visualize
+
+
+logger = logging.getLogger(__name__)
 
 
 def edit_topol_add_ligand_include():
@@ -35,13 +39,13 @@ def edit_topol_add_ligand_include():
             break
 
     if insert_idx is None:
-        print("ERROR: Could not find forcefield #include in topol.top")
+        logger.error("Could not find forcefield #include in topol.top")
         sys.exit(1)
 
     # Check if already added
     remaining = "".join(lines[insert_idx:])
     if f'#include "{LIGAND_NAME}.itp"' in remaining:
-        print(f"  topol.top already includes {LIGAND_NAME}.itp, skipping.")
+        logger.info("  topol.top already includes %s.itp, skipping.", LIGAND_NAME)
         return
 
     insert_block = (
@@ -50,7 +54,7 @@ def edit_topol_add_ligand_include():
     )
     lines.insert(insert_idx, insert_block)
     top_path.write_text("".join(lines))
-    print(f"  Added #include \"{LIGAND_NAME}.itp\" to topol.top")
+    logger.info("  Added #include \"%s.itp\" to topol.top", LIGAND_NAME)
 
 
 def edit_topol_add_ligand_molecule():
@@ -60,7 +64,7 @@ def edit_topol_add_ligand_molecule():
     # Check if already present
     content = top_path.read_text()
     if re.search(rf"^{LIGAND_NAME}\s+1\s*$", content, re.MULTILINE):
-        print(f"  topol.top already has '{LIGAND_NAME} 1' in [ molecules ], skipping.")
+        logger.info("  topol.top already has '%s 1' in [ molecules ], skipping.", LIGAND_NAME)
         return
 
     append_to_molecules_section(top_path, LIGAND_NAME, count=1)
@@ -77,7 +81,7 @@ def edit_lig_itp():
     if not itp_path.exists():
         itp_path = SIM_DIR / "lig.itp"
     if not itp_path.exists():
-        print("ERROR: Neither LIG.itp nor lig.itp found in simulation folder.")
+        logger.error("Neither LIG.itp nor lig.itp found in simulation folder.")
         sys.exit(1)
 
     content = itp_path.read_text()
@@ -96,16 +100,21 @@ def edit_lig_itp():
                 parts = name_line.split()
                 current_name = parts[0]
                 if current_name == LIGAND_NAME:
-                    print(f"  {itp_path.name} moleculetype is already '{LIGAND_NAME}', skipping.")
+                    logger.info("  %s moleculetype is already '%s', skipping.", itp_path.name, LIGAND_NAME)
                     return
                 # Replace just the name, keep the nrexcl value
                 new_line = lines[j].replace(current_name, LIGAND_NAME, 1)
                 lines[j] = new_line
                 itp_path.write_text("\n".join(lines) + "\n")
-                print(f"  Renamed moleculetype '{current_name}' -> '{LIGAND_NAME}' in {itp_path.name}")
+                logger.info(
+                    "  Renamed moleculetype '%s' -> '%s' in %s",
+                    current_name,
+                    LIGAND_NAME,
+                    itp_path.name,
+                )
                 return
 
-    print("ERROR: Could not find [ moleculetype ] section in", itp_path.name)
+    logger.error("Could not find [ moleculetype ] section in %s", itp_path.name)
     sys.exit(1)
 
 
@@ -118,7 +127,7 @@ def create_box():
         ["-f", "conf.gro", "-d", BOX_DISTANCE, "-bt", BOX_TYPE, "-o", "box.gro"],
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: box.gro")
+    logger.info("  -> Produced: box.gro")
 
 
 def solvate():
@@ -130,30 +139,30 @@ def solvate():
         ["-cp", "box.gro", "-cs", "spc216.gro", "-p", "topol.top", "-o", "box_sol.gro"],
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: box_sol.gro")
+    logger.info("  -> Produced: box_sol.gro")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 2: Edit Topology, Create Box & Solvate")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 2: Edit Topology, Create Box & Solvate")
+    logger.info("%s", "=" * 60)
 
-    print("\n[2a] Adding ligand include to topol.top...")
+    logger.info("[2a] Adding ligand include to topol.top...")
     edit_topol_add_ligand_include()
 
-    print("\n[2b] Adding ligand to [ molecules ] in topol.top...")
+    logger.info("[2b] Adding ligand to [ molecules ] in topol.top...")
     edit_topol_add_ligand_molecule()
 
-    print("\n[2c] Checking moleculetype name in LIG.itp...")
+    logger.info("[2c] Checking moleculetype name in LIG.itp...")
     edit_lig_itp()
 
-    print("\n[2d] Creating simulation box...")
+    logger.info("[2d] Creating simulation box...")
     create_box()
 
-    print("\n[2e] Solvating the system...")
+    logger.info("[2e] Solvating the system...")
     solvate()
 
-    print("\nStep 2 complete.")
+    logger.info("Step 2 complete.")
     visualize(SIM_DIR / "box_sol.gro", label="after solvate")
 
 

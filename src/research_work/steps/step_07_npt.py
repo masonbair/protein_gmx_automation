@@ -6,8 +6,13 @@ Step 7: NPT equilibration.
   - gmx mdrun -deffnm NPT
 """
 
+import logging
+
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
 from research_work.utils.gmx import run_gmx
+
+
+logger = logging.getLogger(__name__)
 
 
 def grompp_npt():
@@ -23,30 +28,30 @@ def grompp_npt():
     if result.returncode == 0:
         return
     if "warning" in (result.stderr or "").lower():
-        print(f"\n  grompp failed with warnings — retrying with -maxwarn {MAXWARN}.")
+        logger.warning("  grompp failed with warnings - retrying with -maxwarn %s.", MAXWARN)
         run_gmx("grompp", base_args, work_dir=SIM_DIR, maxwarn=MAXWARN)
     else:
-        print("\nERROR: grompp failed for reasons other than warnings.")
+        logger.error("grompp failed for reasons other than warnings.")
         raise SystemExit(1)
 
 
 def mdrun_npt():
     run_gmx("mdrun", ["-deffnm", "NPT"], work_dir=SIM_DIR)
-    print("  -> Produced: NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
+    logger.info("  -> Produced: NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 7: NPT Equilibration")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 7: NPT Equilibration")
+    logger.info("%s", "=" * 60)
 
-    print("\n[7a] Assembling NPT.tpr with grompp...")
+    logger.info("[7a] Assembling NPT.tpr with grompp...")
     grompp_npt()
 
-    print("\n[7b] Running NPT equilibration (mdrun)...")
+    logger.info("[7b] Running NPT equilibration (mdrun)...")
     mdrun_npt()
 
-    print("\nStep 7 complete.")
+    logger.info("Step 7 complete.")
 
 
 if __name__ == "__main__":

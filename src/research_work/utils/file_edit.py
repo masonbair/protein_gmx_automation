@@ -4,7 +4,11 @@ File editing utilities for GROMACS input files.
 Handles .gro merging and .top/.itp edits.
 """
 
+import logging
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 # ─── .gro file operations ───────────────────────────────────────────
@@ -46,8 +50,13 @@ def merge_gro_files(base_gro: Path, insert_gro: Path):
     )
 
     base_gro.write_text("\n".join(merged) + "\n")
-    print(f"  Merged {insert_natoms} atoms from {insert_gro.name} into {base_gro.name} "
-          f"(total: {total_atoms})")
+    logger.info(
+        "  Merged %s atoms from %s into %s (total: %s)",
+        insert_natoms,
+        insert_gro.name,
+        base_gro.name,
+        total_atoms,
+    )
 
 
 # ─── .top file operations ────────────────────────────────────────────
@@ -69,7 +78,7 @@ def add_ligand_posres_include(lig_itp_path: Path, itp_name: str = "posre_LIG.itp
     """
     content = lig_itp_path.read_text()
     if itp_name in content:
-        print(f"  '{itp_name}' include already present in {lig_itp_path.name}, skipping.")
+        logger.info("  '%s' include already present in %s, skipping.", itp_name, lig_itp_path.name)
         return
 
     block = (
@@ -79,7 +88,7 @@ def add_ligand_posres_include(lig_itp_path: Path, itp_name: str = "posre_LIG.itp
         "#endif\n"
     )
     lig_itp_path.write_text(content.rstrip("\n") + "\n" + block)
-    print(f"  Added ligand POSRES include ({itp_name}) to {lig_itp_path.name}")
+    logger.info("  Added ligand POSRES include (%s) to %s", itp_name, lig_itp_path.name)
 
 
 def append_to_molecules_section(top_path: Path, molecule_name: str, count: int = 1):
@@ -91,4 +100,4 @@ def append_to_molecules_section(top_path: Path, molecule_name: str, count: int =
     entry = f"{molecule_name:<20s} {count}\n"
     content = content.rstrip("\n") + "\n" + entry
     top_path.write_text(content)
-    print(f"  Appended '{molecule_name} {count}' to [ molecules ] in {top_path.name}")
+    logger.info("  Appended '%s %s' to [ molecules ] in %s", molecule_name, count, top_path.name)

@@ -11,11 +11,15 @@ Prerequisites (user has already done manually):
     directory are present in SIM_DIR.
 """
 
+import logging
 import sys
 
 from research_work.config import SIM_DIR, RECEPTOR_PDB
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import merge_gro_files
+
+
+logger = logging.getLogger(__name__)
 
 
 def verify_inputs():
@@ -27,11 +31,11 @@ def verify_inputs():
     ]
     missing = [f for f in required if not (SIM_DIR / f).exists()]
     if missing:
-        print(f"ERROR: Missing files in {SIM_DIR}:")
+        logger.error("Missing files in %s:", SIM_DIR)
         for f in missing:
-            print(f"  - {f}")
-        print("\nMake sure you've completed the manual Chimera/SwissParam prep")
-        print("and copied everything into the simulation folder.")
+            logger.error("  - %s", f)
+        logger.error("Make sure you've completed the manual Chimera/SwissParam prep")
+        logger.error("and copied everything into the simulation folder.")
         sys.exit(1)
 
 
@@ -41,14 +45,14 @@ def run_pdb2gmx():
     Runs interactively so the user can select force field and water model.
     Produces: conf.gro, topol.top, posre.itp
     """
-    print("  Select the force field and water model when prompted.")
+    logger.info("  Select the force field and water model when prompted.")
     run_gmx(
         "pdb2gmx",
         ["-f", RECEPTOR_PDB, "-ignh"],
         interactive=True,
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: conf.gro, topol.top, posre.itp")
+    logger.info("  -> Produced: conf.gro, topol.top, posre.itp")
 
 
 def convert_ligand_to_gro():
@@ -60,7 +64,7 @@ def convert_ligand_to_gro():
         ["-f", "LIG.pdb", "-o", "LIG.gro"],
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: LIG.gro")
+    logger.info("  -> Produced: LIG.gro")
 
 
 def merge_ligand_into_conf():
@@ -69,22 +73,22 @@ def merge_ligand_into_conf():
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 1: Receptor Topology & Ligand Conversion")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 1: Receptor Topology & Ligand Conversion")
+    logger.info("%s", "=" * 60)
 
     verify_inputs()
 
-    print("\n[1a] Running pdb2gmx on receptor...")
+    logger.info("[1a] Running pdb2gmx on receptor...")
     run_pdb2gmx()
 
-    print("\n[1b] Converting LIG.pdb to LIG.gro...")
+    logger.info("[1b] Converting LIG.pdb to LIG.gro...")
     convert_ligand_to_gro()
 
-    print("\n[1c] Merging ligand atoms into conf.gro...")
+    logger.info("[1c] Merging ligand atoms into conf.gro...")
     merge_ligand_into_conf()
 
-    print("\nStep 1 complete.")
+    logger.info("Step 1 complete.")
 
 
 if __name__ == "__main__":

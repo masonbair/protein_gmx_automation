@@ -7,9 +7,14 @@ Corresponds to tutorial lines 195-201:
   - gmx mdrun -v -deffnm EM
 """
 
+import logging
+
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
 from research_work.utils.gmx import run_gmx
 from research_work.utils.visualize import visualize
+
+
+logger = logging.getLogger(__name__)
 
 
 def grompp_em():
@@ -31,11 +36,11 @@ def grompp_em():
 
     stderr = (result.stderr or "")
     if "warning" in stderr.lower():
-        print(f"\n  grompp failed with warnings — retrying with -maxwarn {MAXWARN}.")
-        print("  (Review the warnings above to confirm they are acceptable.)")
+        logger.warning("  grompp failed with warnings - retrying with -maxwarn %s.", MAXWARN)
+        logger.warning("  (Review the warnings above to confirm they are acceptable.)")
         run_gmx("grompp", base_args, work_dir=SIM_DIR, maxwarn=MAXWARN)
     else:
-        print("\nERROR: grompp failed for reasons other than warnings. See output above.")
+        logger.error("grompp failed for reasons other than warnings. See output above.")
         raise SystemExit(1)
 
 
@@ -46,21 +51,21 @@ def mdrun_em():
         ["-v", "-deffnm", "EM"],
         work_dir=SIM_DIR,
     )
-    print("  -> Produced: EM.gro, EM.edr, EM.log, EM.trr")
+    logger.info("  -> Produced: EM.gro, EM.edr, EM.log, EM.trr")
 
 
 def run():
-    print("\n" + "=" * 60)
-    print("STEP 4: Energy Minimization")
-    print("=" * 60)
+    logger.info("%s", "=" * 60)
+    logger.info("STEP 4: Energy Minimization")
+    logger.info("%s", "=" * 60)
 
-    print("\n[4a] Assembling EM.tpr with grompp...")
+    logger.info("[4a] Assembling EM.tpr with grompp...")
     grompp_em()
 
-    print("\n[4b] Running energy minimization (mdrun)...")
+    logger.info("[4b] Running energy minimization (mdrun)...")
     mdrun_em()
 
-    print("\nStep 4 complete.")
+    logger.info("Step 4 complete.")
     visualize(SIM_DIR / "EM.gro", label="after energy minimization")
 
 
