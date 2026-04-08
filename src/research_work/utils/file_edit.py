@@ -52,6 +52,26 @@ def merge_gro_files(base_gro: Path, insert_gro: Path):
 
 # ─── .top file operations ────────────────────────────────────────────
 
+def add_ligand_posres_include(top_path: Path, itp_name: str = "posre_LIG.itp"):
+    """
+    Append a ligand position-restraint #ifdef POSRES block to topol.top.
+    Idempotent — does nothing if the include is already present.
+    """
+    content = top_path.read_text()
+    if itp_name in content:
+        print(f"  '{itp_name}' include already present in {top_path.name}, skipping.")
+        return
+
+    block = (
+        "\n; Ligand position restraints\n"
+        "#ifdef POSRES\n"
+        f'#include "{itp_name}"\n'
+        "#endif\n"
+    )
+    top_path.write_text(content.rstrip("\n") + "\n" + block)
+    print(f"  Added ligand POSRES include ({itp_name}) to {top_path.name}")
+
+
 def append_to_molecules_section(top_path: Path, molecule_name: str, count: int = 1):
     """
     Append a molecule entry (e.g. 'LIG          1') to the [ molecules ] section

@@ -13,14 +13,16 @@ import sys
 from research_work.steps.step_01_prepare_ligand import run as step_01
 from research_work.steps.step_02_edit_topology import run as step_02
 from research_work.steps.step_03_add_ions import run as step_03
+from research_work.steps.step_04_energy_min import run as step_04
+from research_work.steps.step_05_restraints_index import run as step_05
 
 
 STEPS = {
     1: ("Receptor Topology & Ligand Conversion", step_01),
     2: ("Edit Topology & ITP Files",             step_02),
-    # 3: ("Solvate & Add Ions",                    step_03),
-    # 4: ("Energy Minimization",                  step_04),
-    # 5: ("Indexing & Restraints",                step_05),
+    3: ("Solvate & Add Ions",                    step_03),
+    4: ("Energy Minimization",                   step_04),
+    5: ("Restraints & System Index",             step_05),
     # 6: ("NVT Equilibration",                    step_06),
     # 7: ("NPT Equilibration",                    step_07),
     # 8: ("Production MD",                        step_08),

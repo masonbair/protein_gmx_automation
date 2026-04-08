@@ -16,7 +16,7 @@ from pathlib import Path
 
 def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
             work_dir: Path | None = None, maxwarn: str | None = None,
-            interactive: bool = False) -> subprocess.CompletedProcess:
+            interactive: bool = False, check: bool = True) -> subprocess.CompletedProcess:
     """
     Run a gmx subcommand.
 
@@ -75,7 +75,7 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
         if result.stderr.strip():
             print(result.stderr)
 
-    if result.returncode != 0:
+    if result.returncode != 0 and check:
         print(f"\nERROR: gmx {command} exited with code {result.returncode}", file=sys.stderr)
         sys.exit(1)
 
