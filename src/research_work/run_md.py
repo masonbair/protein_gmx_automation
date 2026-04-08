@@ -15,6 +15,9 @@ from research_work.steps.step_02_edit_topology import run as step_02
 from research_work.steps.step_03_add_ions import run as step_03
 from research_work.steps.step_04_energy_min import run as step_04
 from research_work.steps.step_05_restraints_index import run as step_05
+from research_work.steps.step_06_nvt import run as step_06
+from research_work.steps.step_07_npt import run as step_07
+from research_work.steps.step_08_production_md import run as step_08
 
 
 STEPS = {
@@ -23,9 +26,9 @@ STEPS = {
     3: ("Solvate & Add Ions",                    step_03),
     4: ("Energy Minimization",                   step_04),
     5: ("Restraints & System Index",             step_05),
-    # 6: ("NVT Equilibration",                    step_06),
-    # 7: ("NPT Equilibration",                    step_07),
-    # 8: ("Production MD",                        step_08),
+    6: ("NVT Equilibration",                     step_06),
+    7: ("NPT Equilibration",                     step_07),
+    8: ("Production MD",                         step_08),
     # 9: ("Post-MD Analysis",                     step_09),
 }
 
