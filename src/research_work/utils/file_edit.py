@@ -52,14 +52,24 @@ def merge_gro_files(base_gro: Path, insert_gro: Path):
 
 # ─── .top file operations ────────────────────────────────────────────
 
-def add_ligand_posres_include(top_path: Path, itp_name: str = "posre_LIG.itp"):
+def add_ligand_posres_include(lig_itp_path: Path, itp_name: str = "posre_LIG.itp"):
     """
-    Append a ligand position-restraint #ifdef POSRES block to topol.top.
+    Append a ligand position-restraint #ifdef POSRES block to LIG.itp.
+
+    The include MUST live inside the ligand [moleculetype] block so grompp
+    resolves the atom indices against ligand atoms. LIG.itp typically
+    contains only the single LIG moleculetype, so appending at end-of-file
+    is still inside that moleculetype's scope and is the safe placement.
+
+    Putting this block in topol.top instead (after [ system ] / [ molecules ])
+    causes grompp to error with:
+        "Atom index (N) in position_restraints out of bounds (1-1)"
+
     Idempotent — does nothing if the include is already present.
     """
-    content = top_path.read_text()
+    content = lig_itp_path.read_text()
     if itp_name in content:
-        print(f"  '{itp_name}' include already present in {top_path.name}, skipping.")
+        print(f"  '{itp_name}' include already present in {lig_itp_path.name}, skipping.")
         return
 
     block = (
@@ -68,8 +78,8 @@ def add_ligand_posres_include(top_path: Path, itp_name: str = "posre_LIG.itp"):
         f'#include "{itp_name}"\n'
         "#endif\n"
     )
-    top_path.write_text(content.rstrip("\n") + "\n" + block)
-    print(f"  Added ligand POSRES include ({itp_name}) to {top_path.name}")
+    lig_itp_path.write_text(content.rstrip("\n") + "\n" + block)
+    print(f"  Added ligand POSRES include ({itp_name}) to {lig_itp_path.name}")
 
 
 def append_to_molecules_section(top_path: Path, molecule_name: str, count: int = 1):
