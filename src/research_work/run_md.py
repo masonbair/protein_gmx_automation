@@ -5,6 +5,7 @@ Usage:
     python run_md.py              # Run all steps from the beginning
     python run_md.py --step 1     # Run only step 1
     python run_md.py --from 3     # Resume from step 3 onward
+    python run_md.py --detach-step8  # Run step 8 mdrun in background
 """
 
 import argparse
@@ -43,6 +44,11 @@ def main():
     parser = argparse.ArgumentParser(description="GROMACS MD Simulation Pipeline")
     parser.add_argument("--step", type=int, help="Run only this step")
     parser.add_argument("--from", dest="from_step", type=int, help="Start from this step")
+    parser.add_argument(
+        "--detach-step8",
+        action="store_true",
+        help="Launch step 8 production mdrun in the background and exit",
+    )
     args = parser.parse_args()
 
     log_file = setup_logging(SIM_DIR / "logs")
@@ -54,7 +60,10 @@ def main():
             sys.exit(1)
         name, func = STEPS[args.step]
         logger.info(">>> Running step %s: %s", args.step, name)
-        func()
+        if args.step == 8:
+            func(detach=args.detach_step8)
+        else:
+            func()
     else:
         start = args.from_step or 1
         for step_num in sorted(STEPS.keys()):
@@ -62,7 +71,10 @@ def main():
                 continue
             name, func = STEPS[step_num]
             logger.info(">>> Running step %s: %s", step_num, name)
-            func()
+            if step_num == 8:
+                func(detach=args.detach_step8)
+            else:
+                func()
 
     logger.info("%s", "=" * 60)
     logger.info("Pipeline complete.")

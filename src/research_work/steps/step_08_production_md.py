@@ -10,6 +10,7 @@ To resume an interrupted production run, use:
 """
 
 import logging
+import subprocess
 
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
 from research_work.utils.gmx import run_gmx
@@ -39,17 +40,44 @@ def grompp_md():
         raise SystemExit(1)
 
 
-def mdrun_md():
+def mdrun_md(detach: bool = False):
     """
     Production mdrun. If a checkpoint exists from a prior interrupted run,
     GROMACS users typically resume manually with:
         gmx mdrun -s MD.tpr -cpi MD.cpt -deffnm MD -append -v
     """
-    run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR)
-    logger.info("  -> Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
+    if not detach:
+        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR)
+        logger.info("  -> Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
+        return
+
+    logs_dir = SIM_DIR / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    out_path = logs_dir / "step8_mdrun.out"
+    err_path = logs_dir / "step8_mdrun.err"
+    pid_path = logs_dir / "step8_mdrun.pid"
+
+    cmd = ["gmx", "mdrun", "-deffnm", "MD", "-v"]
+    logger.info("Launching detached process: %s", " ".join(cmd))
+
+    with open(out_path, "a", encoding="utf-8") as out_f, open(err_path, "a", encoding="utf-8") as err_f:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=SIM_DIR,
+            stdin=subprocess.DEVNULL,
+            stdout=out_f,
+            stderr=err_f,
+            start_new_session=True,
+        )
+
+    pid_path.write_text(f"{proc.pid}\n", encoding="utf-8")
+    logger.info("Detached step 8 started with PID %s", proc.pid)
+    logger.info("stdout log: %s", out_path)
+    logger.info("stderr log: %s", err_path)
+    logger.info("pid file: %s", pid_path)
 
 
-def run():
+def run(detach: bool = False):
     logger.info("%s", "=" * 60)
     logger.info("STEP 8: Production MD")
     logger.info("%s", "=" * 60)
@@ -58,7 +86,11 @@ def run():
     grompp_md()
 
     logger.info("[8b] Running production MD (this may take a while)...")
-    mdrun_md()
+    mdrun_md(detach=detach)
+
+    if detach:
+        logger.info("Step 8 launched in detached mode. Exiting without visualization.")
+        return
 
     logger.info("Step 8 complete - production run finished.")
     logger.info("Launching final visualization of the production trajectory...")
