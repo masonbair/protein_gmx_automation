@@ -12,6 +12,7 @@ job's runtime env) — no shared mount or extra ports required.
 closes VMD. That's the per-step pause point.
 """
 
+import argparse
 import logging
 import shutil
 import tempfile
@@ -62,6 +63,24 @@ rc = proc.wait()
 logging.info("[vmd_job] VMD exited with code %s", rc)
 sys.exit(rc)
 """
+
+
+def resolve_structure_path(path_arg: str) -> Path:
+    """Resolve a structure path from CLI input.
+
+    Priority:
+    1. As provided (relative to current working directory)
+    2. Relative to SIM_DIR
+    """
+    candidate = Path(path_arg).expanduser()
+    if candidate.exists():
+        return candidate
+
+    sim_candidate = (SIM_DIR / candidate).resolve()
+    if sim_candidate.exists():
+        return sim_candidate
+
+    return candidate
 
 
 def visualize(file_path: Path, label: str = "") -> None:
@@ -115,3 +134,35 @@ def visualize(file_path: Path, label: str = "") -> None:
                 logger.error("%s", logs)
 
     logger.info(">>> Resumed.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Visualize a structure file in VMD through the Ray/XPRA setup."
+    )
+    parser.add_argument(
+        "structure",
+        help="Structure file to visualize (e.g. MD.gro or /path/to/MD.gro).",
+    )
+    parser.add_argument(
+        "--label",
+        default="",
+        help="Optional label shown in logs.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run visualization even if PAUSE_FOR_VISUALIZATION is False.",
+    )
+    args = parser.parse_args()
+
+    if args.force:
+        global PAUSE_FOR_VISUALIZATION
+        PAUSE_FOR_VISUALIZATION = True
+
+    structure_path = resolve_structure_path(args.structure)
+    visualize(structure_path, label=args.label)
+
+
+if __name__ == "__main__":
+    main()
