@@ -1,26 +1,27 @@
 """
-Visualization helper: ships a single structure file to the remote
-`xrpa-ray-container` via the Ray Jobs API and launches VMD on the XPRA
-display (:80).
+Visualization helper with two backends.
 
-The submitter runs OUTSIDE the container and talks to the Ray dashboard /
-Jobs API on port 8265. The file is uploaded as part of the job's
-`working_dir` (Ray zips it, sends it to the cluster, unpacks it in the
-job's runtime env) — no shared mount or extra ports required.
+Linux / Ray path (default):
+  Ships a single structure file to the remote `xrpa-ray-container` via
+  the Ray Jobs API and launches VMD on the XPRA display (:80). The
+  submitter runs OUTSIDE the container and talks to the Ray dashboard /
+  Jobs API on port 8265. `visualize()` blocks until the job finishes,
+  which happens when the user closes VMD.
 
-`visualize()` blocks until the job finishes, which happens when the user
-closes VMD. That's the per-step pause point.
+Windows path (config.WINDOWS_MODE=True, set by `run_md.py --windows`):
+  Skips Ray/XPRA entirely. Launches VMD locally via subprocess and
+  blocks until the user closes the window. No container, no X display.
 """
 
 import argparse
 import logging
 import shutil
+import subprocess
 import tempfile
 import time
 from pathlib import Path
 
-from ray.job_submission import JobStatus, JobSubmissionClient
-
+from research_work import config
 from research_work.config import (
     PAUSE_FOR_VISUALIZATION,
     RAY_JOBS_ADDRESS,
@@ -83,31 +84,29 @@ def resolve_structure_path(path_arg: str) -> Path:
     return candidate
 
 
-def visualize(file_path: Path, label: str = "", force: bool = False) -> None:
-    """Send `file_path` to the Ray container and open it in VMD on XPRA.
-    Blocks until VMD is closed (i.e. the Ray job finishes).
-
-    If `force` is True, the call runs regardless of PAUSE_FOR_VISUALIZATION —
-    used by the detached step 8 wrapper so the final trajectory view always
-    fires even when intermediate pauses were disabled for the run.
-    """
-    if not PAUSE_FOR_VISUALIZATION and not force:
+def _visualize_windows(file_path: Path) -> None:
+    """Launch VMD locally. Blocks until the user closes the VMD window."""
+    cmd = [VMD_COMMAND, str(file_path)]
+    logger.info("  [visualize/windows] launching: %s", " ".join(cmd))
+    try:
+        result = subprocess.run(cmd)
+    except FileNotFoundError:
+        logger.error(
+            "  [visualize/windows] %r not found on PATH - skipping visualization.",
+            VMD_COMMAND,
+        )
         return
+    if result.returncode != 0:
+        logger.warning("  [visualize/windows] VMD exited with code %s", result.returncode)
 
-    file_path = Path(file_path)
-    if not file_path.exists():
-        logger.warning("  [visualize] file not found, skipping: %s", file_path)
-        return
 
-    logger.info(
-        ">>> Visualizing %s%s on XPRA display - close VMD to continue...",
-        file_path.name,
-        f" ({label})" if label else "",
-    )
+def _visualize_ray(file_path: Path) -> None:
+    """Submit a Ray job that runs VMD on the XPRA display. Blocks on the job."""
+    # Imported lazily so Windows users don't need the `ray` package installed.
+    from ray.job_submission import JobStatus, JobSubmissionClient
 
     client = JobSubmissionClient(RAY_JOBS_ADDRESS)
 
-    # Build a throwaway working_dir containing the structure file + entrypoint.
     with tempfile.TemporaryDirectory(prefix="vmd_job_") as tmp:
         tmp_path = Path(tmp)
         shutil.copy2(file_path, tmp_path / file_path.name)
@@ -123,7 +122,7 @@ def visualize(file_path: Path, label: str = "", force: bool = False) -> None:
             entrypoint="python vmd_entry.py",
             runtime_env={"working_dir": str(tmp_path)},
         )
-        logger.info("  [visualize] submitted job %s", job_id)
+        logger.info("  [visualize/ray] submitted job %s", job_id)
 
         terminal = {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.STOPPED}
         while True:
@@ -134,9 +133,41 @@ def visualize(file_path: Path, label: str = "", force: bool = False) -> None:
 
         if status != JobStatus.SUCCEEDED:
             logs = client.get_job_logs(job_id)
-            logger.error("  [visualize] job %s ended as %s", job_id, status)
+            logger.error("  [visualize/ray] job %s ended as %s", job_id, status)
             if logs:
                 logger.error("%s", logs)
+
+
+def visualize(file_path: Path, label: str = "", force: bool = False) -> None:
+    """Open `file_path` in VMD and block until the user closes it.
+
+    Backend depends on config.WINDOWS_MODE: Ray/XPRA on Linux, direct
+    subprocess on Windows.
+
+    If `force` is True, the call runs regardless of PAUSE_FOR_VISUALIZATION —
+    used by the detached step 8 wrapper so the final trajectory view always
+    fires even when intermediate pauses were disabled for the run.
+    """
+    if not PAUSE_FOR_VISUALIZATION and not force:
+        return
+
+    file_path = Path(file_path)
+    if not file_path.exists():
+        logger.warning("  [visualize] file not found, skipping: %s", file_path)
+        return
+
+    backend = "windows" if config.WINDOWS_MODE else "XPRA display"
+    logger.info(
+        ">>> Visualizing %s%s on %s - close VMD to continue...",
+        file_path.name,
+        f" ({label})" if label else "",
+        backend,
+    )
+
+    if config.WINDOWS_MODE:
+        _visualize_windows(file_path)
+    else:
+        _visualize_ray(file_path)
 
     logger.info(">>> Resumed.")
 

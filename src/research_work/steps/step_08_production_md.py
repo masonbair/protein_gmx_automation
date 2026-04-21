@@ -68,6 +68,13 @@ def mdrun_md(detach: bool = False):
     cmd = [sys.executable, "-m", "research_work.steps.step_08_production_md", "--detached-run"]
     logger.info("Launching detached wrapper: %s", " ".join(cmd))
 
+    # start_new_session is POSIX-only; Windows needs CREATE_NEW_PROCESS_GROUP.
+    popen_kwargs: dict = {}
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
     with open(out_path, "a", encoding="utf-8") as out_f, open(err_path, "a", encoding="utf-8") as err_f:
         proc = subprocess.Popen(
             cmd,
@@ -75,7 +82,7 @@ def mdrun_md(detach: bool = False):
             stdin=subprocess.DEVNULL,
             stdout=out_f,
             stderr=err_f,
-            start_new_session=True,
+            **popen_kwargs,
         )
 
     pid_path.write_text(f"{proc.pid}\n", encoding="utf-8")

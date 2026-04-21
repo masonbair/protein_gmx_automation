@@ -22,6 +22,7 @@ import subprocess
 import sys
 from datetime import datetime
 
+from research_work import config
 from research_work.config import SIM_DIR
 from research_work.steps.step_01_prepare_ligand import run as step_01
 from research_work.steps.step_02_edit_topology import run as step_02
@@ -86,14 +87,21 @@ def _respawn_detached(argv_tail: list[str]) -> None:
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
 
+    # start_new_session is POSIX-only; Windows needs CREATE_NEW_PROCESS_GROUP.
+    popen_kwargs: dict = {}
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
     with open(bg_out, "w", encoding="utf-8") as out_f, open(bg_err, "w", encoding="utf-8") as err_f:
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
             stdout=out_f,
             stderr=err_f,
-            start_new_session=True,
             env=env,
+            **popen_kwargs,
         )
 
     pid_path.write_text(f"{proc.pid}\n", encoding="utf-8")
@@ -129,12 +137,26 @@ def main():
         ),
     )
     parser.add_argument(
+        "--windows",
+        action="store_true",
+        help=(
+            "Run in Windows / PowerShell mode: use the local-VMD "
+            "visualization backend (no Ray/XPRA) and Windows-compatible "
+            "subprocess flags for detached spawns."
+        ),
+    )
+    parser.add_argument(
         "--detached-runner",
         action="store_true",
         dest="detached_runner",
         help=argparse.SUPPRESS,  # internal: set on the forked child only
     )
     args = parser.parse_args()
+
+    # Propagate --windows into the shared config so visualize.py and the
+    # step-8 detach path can see it. Must happen before any step runs.
+    if args.windows:
+        config.WINDOWS_MODE = True
 
     # Parent side of --detach: respawn ourselves in the background and
     # return. Everything below this point runs only in the interactive

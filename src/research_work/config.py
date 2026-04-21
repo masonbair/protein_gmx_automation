@@ -33,6 +33,12 @@ MAXWARN = "2"
 VMD_COMMAND = "vmd"
 PAUSE_FOR_VISUALIZATION = True  # Set False to skip VMD pauses
 
+# --- Platform mode ---
+# Toggled True by `python -m research_work.run_md --windows`. When set,
+# visualization skips the Ray/XPRA path and launches VMD locally, and
+# detached subprocess spawns use Windows-compatible flags.
+WINDOWS_MODE = False
+
 # --- Detached Mode Defaults ---
 # Values fed to interactive gmx prompts when running with `--detach`.
 # Run the pipeline once interactively to discover the correct numbers for
