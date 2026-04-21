@@ -6,15 +6,21 @@ Usage:
     python run_md.py --step 1        # Run only step 1
     python run_md.py --from 3        # Resume from step 3 onward
     python run_md.py --detach-step8  # Run step 8 mdrun in the background
-    python run_md.py --detach        # Full detached run: feed config values
-                                     # to every interactive prompt, skip
-                                     # intermediate VMD pauses, and launch
-                                     # step 8 in the background.
+    python run_md.py --detach        # Full detached run: fork into the
+                                     # background, feed config values to
+                                     # every interactive prompt, skip VMD
+                                     # pauses, and launch step 8 in its
+                                     # own background process. The parent
+                                     # shell returns immediately; logs
+                                     # are written to SIM_DIR/logs.
 """
 
 import argparse
 import logging
+import os
+import subprocess
 import sys
+from datetime import datetime
 
 from research_work.config import SIM_DIR
 from research_work.steps.step_01_prepare_ligand import run as step_01
@@ -41,6 +47,12 @@ STEPS = {
 }
 
 
+# Internal flag name used by the detach respawn. `--detached-runner` means
+# "we're already the background copy, don't fork again." argparse turns
+# dashes into underscores, so the attribute is args.detached_runner.
+DETACHED_RUNNER_FLAG = "--detached-runner"
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +63,49 @@ def _invoke(step_num: int, func, detach: bool, detach_step8: bool) -> None:
         func(detach=(detach or detach_step8))
     else:
         func(detach=detach)
+
+
+def _respawn_detached(argv_tail: list[str]) -> None:
+    """Fork the current invocation into a background process and return.
+
+    The child is detached (new session, DEVNULL stdin, stdout/stderr
+    redirected to pipeline_detached_*.out/.err under SIM_DIR/logs) and
+    carries the --detached-runner flag so it does not fork again.
+    """
+    logs_dir = SIM_DIR / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    bg_out = logs_dir / f"pipeline_detached_{ts}.out"
+    bg_err = logs_dir / f"pipeline_detached_{ts}.err"
+    pid_path = logs_dir / "pipeline.pid"
+
+    # -u forces unbuffered stdout/stderr so `tail -f` on the log file
+    # shows progress in real time instead of waiting on the block buffer.
+    cmd = [sys.executable, "-u", "-m", "research_work.run_md", *argv_tail, DETACHED_RUNNER_FLAG]
+
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+
+    with open(bg_out, "w", encoding="utf-8") as out_f, open(bg_err, "w", encoding="utf-8") as err_f:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=out_f,
+            stderr=err_f,
+            start_new_session=True,
+            env=env,
+        )
+
+    pid_path.write_text(f"{proc.pid}\n", encoding="utf-8")
+
+    # Terminal output that the user sees in their shell — kept short on
+    # purpose; everything the pipeline itself prints goes into the files.
+    print("Pipeline launched in detached mode.")
+    print(f"  PID file:       {pid_path}  (pid={proc.pid})")
+    print(f"  pipeline log:   {bg_out}")
+    print(f"  pipeline errs:  {bg_err}")
+    print(f"  simulation dir: {SIM_DIR}")
+    print("Check progress with: python -m research_work.status")
 
 
 def main():
@@ -66,19 +121,35 @@ def main():
         "--detach",
         action="store_true",
         help=(
-            "Run the entire pipeline without interactive prompts. Uses the "
-            "DETACH_* values in config.py for steps 1 and 5, skips VMD "
-            "pauses, auto-applies the default maxwarn on grompp warnings, "
-            "and launches step 8 mdrun in the background. Check progress "
-            "with: python -m research_work.status"
+            "Run the entire pipeline in the background. Forks itself, "
+            "redirects output to SIM_DIR/logs, feeds DETACH_* values from "
+            "config.py to interactive prompts, skips VMD pauses, and "
+            "launches step 8 mdrun as its own background process. Check "
+            "progress with: python -m research_work.status"
         ),
     )
+    parser.add_argument(
+        "--detached-runner",
+        action="store_true",
+        dest="detached_runner",
+        help=argparse.SUPPRESS,  # internal: set on the forked child only
+    )
     args = parser.parse_args()
+
+    # Parent side of --detach: respawn ourselves in the background and
+    # return. Everything below this point runs only in the interactive
+    # invocation or inside the detached child.
+    if args.detach and not args.detached_runner:
+        # Rebuild the child's argv from the user's, minus the bare
+        # program name. `--detach` stays so the child knows to run in
+        # detach mode (feed config values, skip pauses, detach step 8).
+        _respawn_detached(sys.argv[1:])
+        return
 
     log_file = setup_logging(SIM_DIR / "logs")
     logger.info("Logging to file: %s", log_file)
     if args.detach:
-        logger.info("Running in detached mode - no interactive prompts.")
+        logger.info("Detached pipeline runner started (PID %s).", os.getpid())
 
     step_8_detached = False
 

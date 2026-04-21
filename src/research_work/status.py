@@ -82,13 +82,21 @@ def show_status(n_lines: int, out=sys.stdout) -> None:
         print(f"No logs directory found at {logs_dir}.", file=out)
         return
 
-    pid_path = logs_dir / "step8_mdrun.pid"
-    pid = _read_pid(pid_path)
-    if pid is None:
-        print("Detached step 8: no PID file (step 8 was not launched detached).", file=out)
+    pipeline_pid_path = logs_dir / "pipeline.pid"
+    pipeline_pid = _read_pid(pipeline_pid_path)
+    if pipeline_pid is None:
+        print("Detached pipeline: no PID file (pipeline was not launched with --detach).", file=out)
     else:
-        state = "RUNNING" if pid_alive(pid) else "EXITED"
-        print(f"Detached step 8: PID {pid} - {state}", file=out)
+        state = "RUNNING" if pid_alive(pipeline_pid) else "EXITED"
+        print(f"Detached pipeline: PID {pipeline_pid} - {state}", file=out)
+
+    step8_pid_path = logs_dir / "step8_mdrun.pid"
+    step8_pid = _read_pid(step8_pid_path)
+    if step8_pid is None:
+        print("Detached step 8:    no PID file (step 8 has not been launched detached yet).", file=out)
+    else:
+        state = "RUNNING" if pid_alive(step8_pid) else "EXITED"
+        print(f"Detached step 8:    PID {step8_pid} - {state}", file=out)
 
     latest = _latest_pipeline_log(logs_dir)
     print(file=out)
