@@ -142,7 +142,7 @@ def solvate():
     logger.info("  -> Produced: box_sol.gro")
 
 
-def run():
+def run(detach: bool = False):
     logger.info("%s", "=" * 60)
     logger.info("STEP 2: Edit Topology, Create Box & Solvate")
     logger.info("%s", "=" * 60)
@@ -163,7 +163,8 @@ def run():
     solvate()
 
     logger.info("Step 2 complete.")
-    visualize(SIM_DIR / "box_sol.gro", label="after solvate")
+    if not detach:
+        visualize(SIM_DIR / "box_sol.gro", label="after solvate")
 
 
 if __name__ == "__main__":

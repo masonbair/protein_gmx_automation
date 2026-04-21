@@ -3,6 +3,7 @@ Step 3: Add ions to neutralize the solvated system.
 
 Corresponds to tutorial lines 180-193:
   - gmx grompp -f ions.mdp -c box_sol.gro -p topol.top -o ION.tpr
+      (pauses for user review if warnings are emitted)
   - gmx genion -s ION.tpr -p topol.top -conc 0.1 -neutral -o box_sol_ion.gro
       (select SOL group, e.g. "15")
 """
@@ -10,6 +11,7 @@ Corresponds to tutorial lines 180-193:
 import logging
 
 from research_work.config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
+from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
 from research_work.utils.visualize import visualize
 
@@ -17,11 +19,11 @@ from research_work.utils.visualize import visualize
 logger = logging.getLogger(__name__)
 
 
-def grompp_ions():
+def grompp_ions(detach: bool = False):
     """
-    gmx grompp -f ions_NN.mdp -c box_sol.gro -p topol.top -maxwarn 2 -o ION.tpr
+    gmx grompp -f ions_NN.mdp -c box_sol.gro -p topol.top -o ION.tpr
     """
-    run_gmx(
+    check_step(
         "grompp",
         [
             "-f", MDP_FILES["ions"],
@@ -30,7 +32,8 @@ def grompp_ions():
             "-o", "ION.tpr",
         ],
         work_dir=SIM_DIR,
-        maxwarn=MAXWARN,
+        default_maxwarn=MAXWARN,
+        detach=detach,
     )
     logger.info("  -> Produced: ION.tpr")
 
@@ -55,19 +58,20 @@ def genion():
     logger.info("  -> Produced: box_sol_ion.gro")
 
 
-def run():
+def run(detach: bool = False):
     logger.info("%s", "=" * 60)
     logger.info("STEP 3: Add Ions (Neutralize System)")
     logger.info("%s", "=" * 60)
 
     logger.info("[3a] Assembling ION.tpr with grompp...")
-    grompp_ions()
+    grompp_ions(detach=detach)
 
     logger.info("[3b] Replacing solvent with ions (genion)...")
     genion()
 
     logger.info("Step 3 complete.")
-    visualize(SIM_DIR / "box_sol_ion.gro", label="after genion")
+    if not detach:
+        visualize(SIM_DIR / "box_sol_ion.gro", label="after genion")
 
 
 if __name__ == "__main__":

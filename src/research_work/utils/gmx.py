@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
             work_dir: Path | None = None, maxwarn: str | None = None,
-            interactive: bool = False, check: bool = True) -> subprocess.CompletedProcess:
+            interactive: bool = False, check: bool = True,
+            stream_output: bool = False) -> subprocess.CompletedProcess:
     """
     Run a gmx subcommand.
 
@@ -39,6 +40,10 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
     interactive : bool
         If True, connects gmx directly to the terminal so the user
         can see prompts and type selections themselves.
+    stream_output : bool
+        If True, don't capture stdout/stderr — let them flow to the
+        caller's stdout/stderr. Used for long-running mdrun in detached
+        mode so progress lands live in the redirected log files.
 
     Returns
     -------
@@ -60,6 +65,16 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
     if interactive:
         # Let gmx talk directly to the user's terminal
         result = subprocess.run(cmd, cwd=work_dir)
+    elif stream_output:
+        stdin_text = None
+        if stdin_lines:
+            stdin_text = "\n".join(stdin_lines) + "\n"
+        result = subprocess.run(
+            cmd,
+            input=stdin_text,
+            cwd=work_dir,
+            text=True,
+        )
     else:
         stdin_text = None
         if stdin_lines:

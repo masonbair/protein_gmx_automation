@@ -2,10 +2,14 @@
 Main entry point for the GROMACS MD simulation pipeline.
 
 Usage:
-    python run_md.py              # Run all steps from the beginning
-    python run_md.py --step 1     # Run only step 1
-    python run_md.py --from 3     # Resume from step 3 onward
-    python run_md.py --detach-step8  # Run step 8 mdrun in background
+    python run_md.py                 # Run all steps interactively
+    python run_md.py --step 1        # Run only step 1
+    python run_md.py --from 3        # Resume from step 3 onward
+    python run_md.py --detach-step8  # Run step 8 mdrun in the background
+    python run_md.py --detach        # Full detached run: feed config values
+                                     # to every interactive prompt, skip
+                                     # intermediate VMD pauses, and launch
+                                     # step 8 in the background.
 """
 
 import argparse
@@ -40,6 +44,15 @@ STEPS = {
 logger = logging.getLogger(__name__)
 
 
+def _invoke(step_num: int, func, detach: bool, detach_step8: bool) -> None:
+    """Call a step with the right kwargs. Step 8 accepts detach independently
+    (so --detach-step8 works without --detach); every step accepts detach."""
+    if step_num == 8:
+        func(detach=(detach or detach_step8))
+    else:
+        func(detach=detach)
+
+
 def main():
     parser = argparse.ArgumentParser(description="GROMACS MD Simulation Pipeline")
     parser.add_argument("--step", type=int, help="Run only this step")
@@ -47,12 +60,27 @@ def main():
     parser.add_argument(
         "--detach-step8",
         action="store_true",
-        help="Launch step 8 production mdrun in the background and exit",
+        help="Launch step 8 production mdrun in the background and exit.",
+    )
+    parser.add_argument(
+        "--detach",
+        action="store_true",
+        help=(
+            "Run the entire pipeline without interactive prompts. Uses the "
+            "DETACH_* values in config.py for steps 1 and 5, skips VMD "
+            "pauses, auto-applies the default maxwarn on grompp warnings, "
+            "and launches step 8 mdrun in the background. Check progress "
+            "with: python -m research_work.status"
+        ),
     )
     args = parser.parse_args()
 
     log_file = setup_logging(SIM_DIR / "logs")
     logger.info("Logging to file: %s", log_file)
+    if args.detach:
+        logger.info("Running in detached mode - no interactive prompts.")
+
+    step_8_detached = False
 
     if args.step:
         if args.step not in STEPS:
@@ -60,10 +88,9 @@ def main():
             sys.exit(1)
         name, func = STEPS[args.step]
         logger.info(">>> Running step %s: %s", args.step, name)
-        if args.step == 8:
-            func(detach=args.detach_step8)
-        else:
-            func()
+        _invoke(args.step, func, args.detach, args.detach_step8)
+        if args.step == 8 and (args.detach or args.detach_step8):
+            step_8_detached = True
     else:
         start = args.from_step or 1
         for step_num in sorted(STEPS.keys()):
@@ -71,13 +98,17 @@ def main():
                 continue
             name, func = STEPS[step_num]
             logger.info(">>> Running step %s: %s", step_num, name)
-            if step_num == 8:
-                func(detach=args.detach_step8)
-            else:
-                func()
+            _invoke(step_num, func, args.detach, args.detach_step8)
+            if step_num == 8 and (args.detach or args.detach_step8):
+                step_8_detached = True
 
     logger.info("%s", "=" * 60)
-    logger.info("Pipeline complete.")
+    if step_8_detached:
+        logger.info("Pipeline foreground portion complete.")
+        logger.info("Step 8 is running in the background - it is NOT done yet.")
+        logger.info("Check progress with: python -m research_work.status")
+    else:
+        logger.info("Pipeline complete.")
     logger.info("%s", "=" * 60)
 
 

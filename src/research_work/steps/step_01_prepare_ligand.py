@@ -14,7 +14,12 @@ Prerequisites (user has already done manually):
 import logging
 import sys
 
-from research_work.config import SIM_DIR, RECEPTOR_PDB
+from research_work.config import (
+    SIM_DIR,
+    RECEPTOR_PDB,
+    DETACH_PDB2GMX_FORCEFIELD,
+    DETACH_PDB2GMX_WATER,
+)
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import merge_gro_files
 
@@ -39,19 +44,33 @@ def verify_inputs():
         sys.exit(1)
 
 
-def run_pdb2gmx():
+def run_pdb2gmx(detach: bool = False):
     """
     gmx pdb2gmx -f REC.pdb -ignh
     Runs interactively so the user can select force field and water model.
+    In detach mode, feeds the config's DETACH_PDB2GMX_* values on stdin.
     Produces: conf.gro, topol.top, posre.itp
     """
-    logger.info("  Select the force field and water model when prompted.")
-    run_gmx(
-        "pdb2gmx",
-        ["-f", RECEPTOR_PDB, "-ignh"],
-        interactive=True,
-        work_dir=SIM_DIR,
-    )
+    if detach:
+        logger.info(
+            "  [detach] force field=%s, water=%s (from config)",
+            DETACH_PDB2GMX_FORCEFIELD,
+            DETACH_PDB2GMX_WATER,
+        )
+        run_gmx(
+            "pdb2gmx",
+            ["-f", RECEPTOR_PDB, "-ignh"],
+            stdin_lines=[DETACH_PDB2GMX_FORCEFIELD, DETACH_PDB2GMX_WATER],
+            work_dir=SIM_DIR,
+        )
+    else:
+        logger.info("  Select the force field and water model when prompted.")
+        run_gmx(
+            "pdb2gmx",
+            ["-f", RECEPTOR_PDB, "-ignh"],
+            interactive=True,
+            work_dir=SIM_DIR,
+        )
     logger.info("  -> Produced: conf.gro, topol.top, posre.itp")
 
 
@@ -72,7 +91,7 @@ def merge_ligand_into_conf():
     merge_gro_files(SIM_DIR / "conf.gro", SIM_DIR / "LIG.gro")
 
 
-def run():
+def run(detach: bool = False):
     logger.info("%s", "=" * 60)
     logger.info("STEP 1: Receptor Topology & Ligand Conversion")
     logger.info("%s", "=" * 60)
@@ -80,7 +99,7 @@ def run():
     verify_inputs()
 
     logger.info("[1a] Running pdb2gmx on receptor...")
-    run_pdb2gmx()
+    run_pdb2gmx(detach=detach)
 
     logger.info("[1b] Converting LIG.pdb to LIG.gro...")
     convert_ligand_to_gro()

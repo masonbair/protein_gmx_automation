@@ -32,6 +32,27 @@ MAXWARN = "2"
 # --- Visualization ---
 VMD_COMMAND = "vmd"
 PAUSE_FOR_VISUALIZATION = True  # Set False to skip VMD pauses
+
+# --- Detached Mode Defaults ---
+# Values fed to interactive gmx prompts when running with `--detach`.
+# Run the pipeline once interactively to discover the correct numbers for
+# your system, then record them here.
+
+# pdb2gmx (step 1): force-field number, then water-model number.
+DETACH_PDB2GMX_FORCEFIELD = "1"
+DETACH_PDB2GMX_WATER = "1"
+
+# make_ndx on LIG.gro (step 5): lines sent to the interactive prompt to
+# create the non-hydrogen ligand group and quit.
+DETACH_MAKE_NDX_LIGAND = ["0 & ! a H*", "q"]
+
+# genrestr on LIG.gro (step 5): group number of the non-H ligand group
+# produced by the make_ndx step above.
+DETACH_GENRESTR_LIGAND_GROUP = "3"
+
+# make_ndx on EM.gro (step 5): lines sent to the interactive prompt to
+# build the combined Protein+LIG group and quit.
+DETACH_MAKE_NDX_SYSTEM = ["1 | 13", "q"]
 # Ray Jobs API (dashboard) on xrpa-ray-container. Port 8265 is published
 # by the container. Use the host gateway if the submitter runs in a
 # sibling container (e.g. "http://host.docker.internal:8265" on Docker

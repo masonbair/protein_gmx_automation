@@ -2,37 +2,35 @@
 Step 7: NPT equilibration.
 
   - gmx grompp -f NPT.mdp -c NVT.gro -r NVT.gro -p topol.top -n index.ndx -o NPT.tpr
-      (auto-retry with -maxwarn N if warnings cause failure)
+      (pauses for user review if warnings are emitted)
   - gmx mdrun -deffnm NPT
 """
 
 import logging
 
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
 
 
 logger = logging.getLogger(__name__)
 
 
-def grompp_npt():
-    base_args = [
-        "-f", MDP_FILES["npt"],
-        "-c", "NVT.gro",
-        "-r", "NVT.gro",
-        "-p", "topol.top",
-        "-n", "index.ndx",
-        "-o", "NPT.tpr",
-    ]
-    result = run_gmx("grompp", base_args, work_dir=SIM_DIR, check=False)
-    if result.returncode == 0:
-        return
-    if "warning" in (result.stderr or "").lower():
-        logger.warning("  grompp failed with warnings - retrying with -maxwarn %s.", MAXWARN)
-        run_gmx("grompp", base_args, work_dir=SIM_DIR, maxwarn=MAXWARN)
-    else:
-        logger.error("grompp failed for reasons other than warnings.")
-        raise SystemExit(1)
+def grompp_npt(detach: bool = False):
+    check_step(
+        "grompp",
+        [
+            "-f", MDP_FILES["npt"],
+            "-c", "NVT.gro",
+            "-r", "NVT.gro",
+            "-p", "topol.top",
+            "-n", "index.ndx",
+            "-o", "NPT.tpr",
+        ],
+        work_dir=SIM_DIR,
+        default_maxwarn=MAXWARN,
+        detach=detach,
+    )
 
 
 def mdrun_npt():
@@ -40,13 +38,13 @@ def mdrun_npt():
     logger.info("  -> Produced: NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
 
 
-def run():
+def run(detach: bool = False):
     logger.info("%s", "=" * 60)
     logger.info("STEP 7: NPT Equilibration")
     logger.info("%s", "=" * 60)
 
     logger.info("[7a] Assembling NPT.tpr with grompp...")
-    grompp_npt()
+    grompp_npt(detach=detach)
 
     logger.info("[7b] Running NPT equilibration (mdrun)...")
     mdrun_npt()

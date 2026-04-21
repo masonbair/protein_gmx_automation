@@ -83,10 +83,15 @@ def resolve_structure_path(path_arg: str) -> Path:
     return candidate
 
 
-def visualize(file_path: Path, label: str = "") -> None:
+def visualize(file_path: Path, label: str = "", force: bool = False) -> None:
     """Send `file_path` to the Ray container and open it in VMD on XPRA.
-    Blocks until VMD is closed (i.e. the Ray job finishes)."""
-    if not PAUSE_FOR_VISUALIZATION:
+    Blocks until VMD is closed (i.e. the Ray job finishes).
+
+    If `force` is True, the call runs regardless of PAUSE_FOR_VISUALIZATION —
+    used by the detached step 8 wrapper so the final trajectory view always
+    fires even when intermediate pauses were disabled for the run.
+    """
+    if not PAUSE_FOR_VISUALIZATION and not force:
         return
 
     file_path = Path(file_path)
