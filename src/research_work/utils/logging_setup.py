@@ -20,17 +20,19 @@ def setup_logging(log_dir: Path, level: int = logging.INFO) -> Path:
     for handler in list(root_logger.handlers):
         root_logger.removeHandler(handler)
 
-    formatter = logging.Formatter(
+    file_formatter = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     )
+    console_formatter = logging.Formatter("%(levelname)s: %(message)s")
 
+    # Console only shows warnings and errors; all detail goes to the log file.
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.WARNING)
+    console_handler.setFormatter(console_formatter)
 
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
+    file_handler.setFormatter(file_formatter)
 
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)

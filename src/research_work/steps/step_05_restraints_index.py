@@ -14,6 +14,7 @@ Corresponds to tutorial lines 203-240:
 """
 
 import logging
+import time
 
 from research_work.config import (
     SIM_DIR,
@@ -21,6 +22,7 @@ from research_work.config import (
     DETACH_GENRESTR_LIGAND_GROUP,
     DETACH_MAKE_NDX_SYSTEM,
 )
+from research_work.utils import console
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import add_ligand_posres_include
 
@@ -45,13 +47,8 @@ def ligand_itp_has_inline_restraints() -> bool:
 
 
 def make_ligand_index(detach: bool = False):
-    """
-    gmx make_ndx -f LIG.gro -o index_LIG.ndx
-    Interactive — user types selection (typically '0 & ! a H*' then 'q').
-    In detach mode, uses DETACH_MAKE_NDX_LIGAND from config.
-    """
     if detach:
-        logger.info("  [detach] stdin=%s (from config)", DETACH_MAKE_NDX_LIGAND)
+        console.info(f"[detach] stdin={DETACH_MAKE_NDX_LIGAND} (from config)")
         run_gmx(
             "make_ndx",
             ["-f", "LIG.gro", "-o", "index_LIG.ndx"],
@@ -59,73 +56,43 @@ def make_ligand_index(detach: bool = False):
             work_dir=SIM_DIR,
         )
     else:
-        logger.info("  Suggested selection: '0 & ! a H*'  then  'q'")
-        logger.info("  (creates a non-hydrogen ligand group used for restraints)")
+        console.hint("Type '0 & ! a H*' then 'q' to create the non-hydrogen ligand group.")
         run_gmx(
             "make_ndx",
             ["-f", "LIG.gro", "-o", "index_LIG.ndx"],
             work_dir=SIM_DIR,
             interactive=True,
         )
-    logger.info("  -> Produced: index_LIG.ndx")
+    console.produced("index_LIG.ndx")
 
 
 def genrestr_ligand(detach: bool = False):
-    """
-    gmx genrestr -f LIG.gro -n index_LIG.ndx -o posre_LIG.itp -fc 1000 1000 1000
-    Interactive — user picks the non-H ligand group from the printed list.
-    In detach mode, uses DETACH_GENRESTR_LIGAND_GROUP from config.
-    """
     if detach:
-        logger.info(
-            "  [detach] non-H ligand group=%s (from config)",
-            DETACH_GENRESTR_LIGAND_GROUP,
-        )
+        console.info(f"[detach] non-H ligand group={DETACH_GENRESTR_LIGAND_GROUP} (from config)")
         run_gmx(
             "genrestr",
-            [
-                "-f", "LIG.gro",
-                "-n", "index_LIG.ndx",
-                "-o", "posre_LIG.itp",
-                "-fc", "1000", "1000", "1000",
-            ],
+            ["-f", "LIG.gro", "-n", "index_LIG.ndx", "-o", "posre_LIG.itp", "-fc", "1000", "1000", "1000"],
             stdin_lines=[DETACH_GENRESTR_LIGAND_GROUP],
             work_dir=SIM_DIR,
         )
     else:
-        logger.info("  Pick the non-hydrogen ligand group you just created (often group 3).")
+        console.hint("Pick the non-hydrogen ligand group you just created (often group 3).")
         run_gmx(
             "genrestr",
-            [
-                "-f", "LIG.gro",
-                "-n", "index_LIG.ndx",
-                "-o", "posre_LIG.itp",
-                "-fc", "1000", "1000", "1000",
-            ],
+            ["-f", "LIG.gro", "-n", "index_LIG.ndx", "-o", "posre_LIG.itp", "-fc", "1000", "1000", "1000"],
             work_dir=SIM_DIR,
             interactive=True,
         )
-    logger.info("  -> Produced: posre_LIG.itp")
+    console.produced("posre_LIG.itp")
 
 
 def edit_topology_for_ligand_posres():
-    """
-    Append the ligand #ifdef POSRES include to LIG.itp (idempotent).
-    Must be LIG.itp, not topol.top — see add_ligand_posres_include() for why.
-    """
     add_ligand_posres_include(SIM_DIR / "LIG.itp", itp_name="posre_LIG.itp")
 
 
 def make_system_index(detach: bool = False):
-    """
-    gmx make_ndx -f EM.gro -o index.ndx
-    Interactive — user types the combo group they want (e.g. '1 | 13'),
-    then 'q'. Group numbers depend on the system, so the user should read
-    the printed list before choosing.
-    In detach mode, uses DETACH_MAKE_NDX_SYSTEM from config.
-    """
     if detach:
-        logger.info("  [detach] stdin=%s (from config)", DETACH_MAKE_NDX_SYSTEM)
+        console.info(f"[detach] stdin={DETACH_MAKE_NDX_SYSTEM} (from config)")
         run_gmx(
             "make_ndx",
             ["-f", "EM.gro", "-o", "index.ndx"],
@@ -133,42 +100,37 @@ def make_system_index(detach: bool = False):
             work_dir=SIM_DIR,
         )
     else:
-        logger.info("  Read the printed group list, then type the combination you want.")
-        logger.info("  Typical: 'Protein | LIG' (e.g. '1 | 13'), then 'q'.")
+        console.hint("Read the group list, type your combination (e.g. '1 | 13'), then 'q'.")
         run_gmx(
             "make_ndx",
             ["-f", "EM.gro", "-o", "index.ndx"],
             work_dir=SIM_DIR,
             interactive=True,
         )
-    logger.info("  -> Produced: index.ndx")
+    console.produced("index.ndx")
 
 
 def run(detach: bool = False):
-    logger.info("%s", "=" * 60)
-    logger.info("STEP 5: Ligand Restraints & System Index")
-    logger.info("%s", "=" * 60)
+    start = console.step_header(5, "Ligand Restraints & System Index")
 
     if ligand_itp_has_inline_restraints():
-        logger.info("  LIG.itp already contains inline position restraints (POSRES_LIGAND block).")
-        logger.info("  Skipping ligand index, genrestr, and topol.top edit - they would")
-        logger.info("  duplicate the existing restraints and break grompp.")
-        logger.info("  IMPORTANT: make sure NVT.mdp / NPT.mdp activate the macro, e.g.:")
-        logger.info("      define = -DPOSRES -DPOSRES_LIGAND")
+        console.info("LIG.itp already contains inline position restraints (POSRES_LIGAND block).")
+        console.info("Skipping ligand index, genrestr, and topology edit.")
+        console.info("Ensure NVT.mdp / NPT.mdp define: -DPOSRES -DPOSRES_LIGAND")
     else:
-        logger.info("[5a] Building ligand index file...")
+        console.substep("5a", "Building ligand index file (gmx make_ndx)")
         make_ligand_index(detach=detach)
 
-        logger.info("[5b] Generating ligand position restraints...")
+        console.substep("5b", "Generating ligand position restraints (gmx genrestr)")
         genrestr_ligand(detach=detach)
 
-        logger.info("[5c] Adding ligand POSRES include to LIG.itp...")
+        console.substep("5c", "Adding POSRES include to LIG.itp")
         edit_topology_for_ligand_posres()
 
-    logger.info("[5d] Building system index file (Protein + LIG combo)...")
+    console.substep("5d", "Building system index file (gmx make_ndx)")
     make_system_index(detach=detach)
 
-    logger.info("Step 5 complete.")
+    console.step_done(time.monotonic() - start)
 
 
 if __name__ == "__main__":

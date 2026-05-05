@@ -7,8 +7,10 @@ Step 7: NPT equilibration.
 """
 
 import logging
+import time
 
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
 
@@ -19,37 +21,29 @@ logger = logging.getLogger(__name__)
 def grompp_npt(detach: bool = False):
     check_step(
         "grompp",
-        [
-            "-f", MDP_FILES["npt"],
-            "-c", "NVT.gro",
-            "-r", "NVT.gro",
-            "-p", "topol.top",
-            "-n", "index.ndx",
-            "-o", "NPT.tpr",
-        ],
+        ["-f", MDP_FILES["npt"], "-c", "NVT.gro", "-r", "NVT.gro", "-p", "topol.top", "-n", "index.ndx", "-o", "NPT.tpr"],
         work_dir=SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
+    console.produced("NPT.tpr")
 
 
 def mdrun_npt():
     run_gmx("mdrun", ["-deffnm", "NPT"], work_dir=SIM_DIR)
-    logger.info("  -> Produced: NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
+    console.produced("NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
 
 
 def run(detach: bool = False):
-    logger.info("%s", "=" * 60)
-    logger.info("STEP 7: NPT Equilibration")
-    logger.info("%s", "=" * 60)
+    start = console.step_header(7, "NPT Equilibration")
 
-    logger.info("[7a] Assembling NPT.tpr with grompp...")
+    console.substep("7a", "Assembling NPT.tpr (gmx grompp)")
     grompp_npt(detach=detach)
 
-    logger.info("[7b] Running NPT equilibration (mdrun)...")
+    console.substep("7b", "Running NPT equilibration (gmx mdrun)")
     mdrun_npt()
 
-    logger.info("Step 7 complete.")
+    console.step_done(time.monotonic() - start)
 
 
 if __name__ == "__main__":

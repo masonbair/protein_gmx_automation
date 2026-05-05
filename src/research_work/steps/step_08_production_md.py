@@ -18,8 +18,10 @@ import argparse
 import logging
 import subprocess
 import sys
+import time
 
 from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
 from research_work.utils.visualize import visualize
@@ -31,18 +33,12 @@ logger = logging.getLogger(__name__)
 def grompp_md(detach: bool = False):
     check_step(
         "grompp",
-        [
-            "-f", MDP_FILES["md"],
-            "-c", "NPT.gro",
-            "-t", "NPT.cpt",
-            "-p", "topol.top",
-            "-n", "index.ndx",
-            "-o", "MD.tpr",
-        ],
+        ["-f", MDP_FILES["md"], "-c", "NPT.gro", "-t", "NPT.cpt", "-p", "topol.top", "-n", "index.ndx", "-o", "MD.tpr"],
         work_dir=SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
+    console.produced("MD.tpr")
 
 
 def mdrun_md(detach: bool = False):
@@ -53,7 +49,7 @@ def mdrun_md(detach: bool = False):
     """
     if not detach:
         run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR, stream_output=True)
-        logger.info("  -> Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
+        console.produced("MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
         return
 
     logs_dir = SIM_DIR / "logs"
@@ -68,7 +64,6 @@ def mdrun_md(detach: bool = False):
     cmd = [sys.executable, "-m", "research_work.steps.step_08_production_md", "--detached-run"]
     logger.info("Launching detached wrapper: %s", " ".join(cmd))
 
-    # start_new_session is POSIX-only; Windows needs CREATE_NEW_PROCESS_GROUP.
     popen_kwargs: dict = {}
     if sys.platform == "win32":
         popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -87,31 +82,28 @@ def mdrun_md(detach: bool = False):
 
     pid_path.write_text(f"{proc.pid}\n", encoding="utf-8")
     logger.info("Detached step 8 wrapper started with PID %s", proc.pid)
-    logger.info("mdrun stdout: %s", out_path)
-    logger.info("mdrun stderr: %s", err_path)
-    logger.info("pid file:     %s", pid_path)
+    console.info(f"mdrun running in background  (PID {proc.pid})")
+    console.info(f"stdout: {out_path}")
+    console.info(f"stderr: {err_path}")
 
 
 def run(detach: bool = False):
-    logger.info("%s", "=" * 60)
-    logger.info("STEP 8: Production MD")
-    logger.info("%s", "=" * 60)
+    start = console.step_header(8, "Production MD")
 
-    logger.info("[8a] Assembling MD.tpr with grompp...")
+    console.substep("8a", "Assembling MD.tpr (gmx grompp)")
     grompp_md(detach=detach)
 
-    logger.info("[8b] Running production MD (this may take a while)...")
+    console.substep("8b", "Running production MD (gmx mdrun -v)  [this may take a while]")
     mdrun_md(detach=detach)
 
     if detach:
-        logger.info("Step 8 launched in detached mode.")
-        logger.info("Production MD is running in the background - it has NOT finished yet.")
-        logger.info("Check progress with: python -m research_work.status")
-        logger.info("When mdrun completes, the final trajectory will be opened in VMD automatically.")
+        console.step_done(time.monotonic() - start, note="mdrun running in background")
+        console.info("Check progress: python -m research_work.status")
+        console.info("Final VMD visualization will launch automatically when mdrun finishes.")
         return
 
-    logger.info("Step 8 complete - production run finished.")
-    logger.info("Launching final visualization of the production trajectory...")
+    console.step_done(time.monotonic() - start)
+    console.info("Launching final visualization of the production trajectory...")
     visualize(SIM_DIR / "MD.gro", label="final production MD")
 
 
@@ -130,19 +122,14 @@ def _detached_run():
     from research_work.utils.logging_setup import setup_logging
 
     log_file = setup_logging(SIM_DIR / "logs")
-    logger.info("%s", "=" * 60)
+    logger.info("=" * 60)
     logger.info("STEP 8 [detached]: Production MD (background wrapper)")
-    logger.info("%s", "=" * 60)
+    logger.info("=" * 60)
     logger.info("Detached runner log: %s", log_file)
 
     try:
-        run_gmx(
-            "mdrun",
-            ["-deffnm", "MD", "-v"],
-            work_dir=SIM_DIR,
-            stream_output=True,
-        )
-        logger.info("  -> Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
+        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR, stream_output=True)
+        logger.info("Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
     except SystemExit:
         logger.error("mdrun failed in detached mode - skipping visualization.")
         raise

@@ -13,6 +13,7 @@ Prerequisites (user has already done manually):
 
 import logging
 import sys
+import time
 
 from research_work.config import (
     SIM_DIR,
@@ -20,6 +21,7 @@ from research_work.config import (
     DETACH_PDB2GMX_FORCEFIELD,
     DETACH_PDB2GMX_WATER,
 )
+from research_work.utils import console
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import merge_gro_files
 
@@ -29,11 +31,7 @@ logger = logging.getLogger(__name__)
 
 def verify_inputs():
     """Check that all required files exist in SIM_DIR before starting."""
-    required = [
-        RECEPTOR_PDB,
-        "LIG.pdb",
-        "LIG.itp",
-    ]
+    required = [RECEPTOR_PDB, "LIG.pdb", "LIG.itp"]
     missing = [f for f in required if not (SIM_DIR / f).exists()]
     if missing:
         logger.error("Missing files in %s:", SIM_DIR)
@@ -45,18 +43,8 @@ def verify_inputs():
 
 
 def run_pdb2gmx(detach: bool = False):
-    """
-    gmx pdb2gmx -f REC.pdb -ignh
-    Runs interactively so the user can select force field and water model.
-    In detach mode, feeds the config's DETACH_PDB2GMX_* values on stdin.
-    Produces: conf.gro, topol.top, posre.itp
-    """
     if detach:
-        logger.info(
-            "  [detach] force field=%s, water=%s (from config)",
-            DETACH_PDB2GMX_FORCEFIELD,
-            DETACH_PDB2GMX_WATER,
-        )
+        console.info(f"[detach] force field={DETACH_PDB2GMX_FORCEFIELD}, water={DETACH_PDB2GMX_WATER} (from config)")
         run_gmx(
             "pdb2gmx",
             ["-f", RECEPTOR_PDB, "-ignh"],
@@ -64,50 +52,40 @@ def run_pdb2gmx(detach: bool = False):
             work_dir=SIM_DIR,
         )
     else:
-        logger.info("  Select the force field and water model when prompted.")
+        console.hint("Select the force field and water model when prompted.")
         run_gmx(
             "pdb2gmx",
             ["-f", RECEPTOR_PDB, "-ignh"],
             interactive=True,
             work_dir=SIM_DIR,
         )
-    logger.info("  -> Produced: conf.gro, topol.top, posre.itp")
+    console.produced("conf.gro, topol.top, posre.itp")
 
 
 def convert_ligand_to_gro():
-    """
-    gmx editconf -f LIG.pdb -o LIG.gro
-    """
-    run_gmx(
-        "editconf",
-        ["-f", "LIG.pdb", "-o", "LIG.gro"],
-        work_dir=SIM_DIR,
-    )
-    logger.info("  -> Produced: LIG.gro")
+    run_gmx("editconf", ["-f", "LIG.pdb", "-o", "LIG.gro"], work_dir=SIM_DIR)
+    console.produced("LIG.gro")
 
 
 def merge_ligand_into_conf():
-    """Merge LIG.gro atom lines into conf.gro."""
     merge_gro_files(SIM_DIR / "conf.gro", SIM_DIR / "LIG.gro")
 
 
 def run(detach: bool = False):
-    logger.info("%s", "=" * 60)
-    logger.info("STEP 1: Receptor Topology & Ligand Conversion")
-    logger.info("%s", "=" * 60)
+    start = console.step_header(1, "Receptor Topology & Ligand Conversion")
 
     verify_inputs()
 
-    logger.info("[1a] Running pdb2gmx on receptor...")
+    console.substep("1a", "Building receptor topology (gmx pdb2gmx)")
     run_pdb2gmx(detach=detach)
 
-    logger.info("[1b] Converting LIG.pdb to LIG.gro...")
+    console.substep("1b", "Converting LIG.pdb to GROMACS format (gmx editconf)")
     convert_ligand_to_gro()
 
-    logger.info("[1c] Merging ligand atoms into conf.gro...")
+    console.substep("1c", "Merging ligand atoms into conf.gro")
     merge_ligand_into_conf()
 
-    logger.info("Step 1 complete.")
+    console.step_done(time.monotonic() - start)
 
 
 if __name__ == "__main__":

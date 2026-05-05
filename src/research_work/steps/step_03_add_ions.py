@@ -9,8 +9,10 @@ Corresponds to tutorial lines 180-193:
 """
 
 import logging
+import time
 
 from research_work.config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
+from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
 from research_work.utils.visualize import visualize
@@ -20,56 +22,36 @@ logger = logging.getLogger(__name__)
 
 
 def grompp_ions(detach: bool = False):
-    """
-    gmx grompp -f ions_NN.mdp -c box_sol.gro -p topol.top -o ION.tpr
-    """
     check_step(
         "grompp",
-        [
-            "-f", MDP_FILES["ions"],
-            "-c", "box_sol.gro",
-            "-p", "topol.top",
-            "-o", "ION.tpr",
-        ],
+        ["-f", MDP_FILES["ions"], "-c", "box_sol.gro", "-p", "topol.top", "-o", "ION.tpr"],
         work_dir=SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
-    logger.info("  -> Produced: ION.tpr")
+    console.produced("ION.tpr")
 
 
 def genion():
-    """
-    gmx genion -s ION.tpr -p topol.top -conc 0.1 -neutral -o box_sol_ion.gro
-    Select SOL group (default "15") for ion replacement.
-    """
     run_gmx(
         "genion",
-        [
-            "-s", "ION.tpr",
-            "-p", "topol.top",
-            "-conc", ION_CONCENTRATION,
-            "-neutral",
-            "-o", "box_sol_ion.gro",
-        ],
+        ["-s", "ION.tpr", "-p", "topol.top", "-conc", ION_CONCENTRATION, "-neutral", "-o", "box_sol_ion.gro"],
         stdin_lines=[GENION_GROUP],
         work_dir=SIM_DIR,
     )
-    logger.info("  -> Produced: box_sol_ion.gro")
+    console.produced("box_sol_ion.gro")
 
 
 def run(detach: bool = False):
-    logger.info("%s", "=" * 60)
-    logger.info("STEP 3: Add Ions (Neutralize System)")
-    logger.info("%s", "=" * 60)
+    start = console.step_header(3, "Add Ions (Neutralize System)")
 
-    logger.info("[3a] Assembling ION.tpr with grompp...")
+    console.substep("3a", "Assembling ION.tpr (gmx grompp)")
     grompp_ions(detach=detach)
 
-    logger.info("[3b] Replacing solvent with ions (genion)...")
+    console.substep("3b", "Replacing solvent with ions (gmx genion)")
     genion()
 
-    logger.info("Step 3 complete.")
+    console.step_done(time.monotonic() - start)
     if not detach:
         visualize(SIM_DIR / "box_sol_ion.gro", label="after genion")
 

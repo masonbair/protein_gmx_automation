@@ -11,6 +11,7 @@ pause-and-decide loop so every step gets the same treatment.
 import logging
 from pathlib import Path
 
+from research_work.utils import console
 from research_work.utils.gmx import run_gmx
 
 
@@ -58,10 +59,13 @@ def check_step(command: str, args: list[str], work_dir: Path | None = None,
         if default_maxwarn is None:
             logger.error("gmx %s emitted warnings; no default maxwarn set - aborting (detach mode).", command)
             raise SystemExit(1)
-        logger.warning("[detach] gmx %s emitted warnings; auto-retrying with -maxwarn %s.", command, default_maxwarn)
+        console.warn(f"gmx {command} emitted warnings; auto-retrying with -maxwarn {default_maxwarn}.")
+        logger.warning("gmx %s emitted warnings; auto-retrying with -maxwarn %s.", command, default_maxwarn)
         maxwarn = default_maxwarn
     else:
         maxwarn = _prompt_for_maxwarn(command, default_maxwarn)
+
+    console.warn(f"Retrying gmx {command} with -maxwarn {maxwarn} ...")
     logger.warning("Retrying gmx %s with -maxwarn %s ...", command, maxwarn)
     run_gmx(
         command, args,
@@ -78,16 +82,15 @@ def _prompt_for_maxwarn(command: str, default_maxwarn: str | None) -> str:
     Returns the chosen maxwarn value. Raises SystemExit if the user
     chooses to abort or supplies an invalid value.
     """
-    logger.warning("%s", "=" * 60)
-    logger.warning("gmx %s failed because of warning(s). Review the output above.", command)
+    print()
+    print("  ! gmx", command, "failed due to warning(s). Review the output above.")
     if default_maxwarn is not None:
-        logger.warning("Press Enter to retry with -maxwarn %s,", default_maxwarn)
-        logger.warning("or enter a different number, or type 'q' / empty to abort.")
-        prompt = f">>> maxwarn [default {default_maxwarn}, 'q' to abort]: "
+        print(f"    Press Enter to retry with -maxwarn {default_maxwarn},")
+        print("    or enter a different number, or type 'q' to abort.")
+        prompt = f"  maxwarn [{default_maxwarn}] > "
     else:
-        logger.warning("Enter a -maxwarn value to retry, or type 'q' / Enter to abort.")
-        prompt = ">>> maxwarn ('q' to abort): "
-    logger.warning("%s", "=" * 60)
+        print("    Enter a -maxwarn value to retry, or press Enter / type 'q' to abort.")
+        prompt = "  maxwarn > "
 
     try:
         response = input(prompt).strip()

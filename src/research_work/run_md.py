@@ -179,7 +179,7 @@ def main():
         return
 
     log_file = setup_logging(SIM_DIR / "logs")
-    logger.info("Logging to file: %s", log_file)
+    print(f"  Log file: {log_file}")
     if args.detach:
         logger.info("Detached pipeline runner started (PID %s).", os.getpid())
 
@@ -189,9 +189,7 @@ def main():
         if args.step not in STEPS:
             logger.error("Unknown step %s. Available: %s", args.step, list(STEPS.keys()))
             sys.exit(1)
-        name, func = STEPS[args.step]
-        logger.info(">>> Running step %s: %s", args.step, name)
-        _invoke(args.step, func, args.detach, args.detach_step8)
+        _invoke(args.step, STEPS[args.step][1], args.detach, args.detach_step8)
         if args.step == 8 and (args.detach or args.detach_step8):
             step_8_detached = True
     else:
@@ -199,20 +197,17 @@ def main():
         for step_num in sorted(STEPS.keys()):
             if step_num < start:
                 continue
-            name, func = STEPS[step_num]
-            logger.info(">>> Running step %s: %s", step_num, name)
-            _invoke(step_num, func, args.detach, args.detach_step8)
+            _invoke(step_num, STEPS[step_num][1], args.detach, args.detach_step8)
             if step_num == 8 and (args.detach or args.detach_step8):
                 step_8_detached = True
 
-    logger.info("%s", "=" * 60)
+    print()
     if step_8_detached:
-        logger.info("Pipeline foreground portion complete.")
-        logger.info("Step 8 is running in the background - it is NOT done yet.")
-        logger.info("Check progress with: python -m research_work.status")
+        print("Pipeline foreground steps complete.")
+        print("Step 8 (production MD) is running in the background -- NOT done yet.")
+        print("Check progress with: python -m research_work.status")
     else:
-        logger.info("Pipeline complete.")
-    logger.info("%s", "=" * 60)
+        print("Pipeline complete.")
 
 
 if __name__ == "__main__":

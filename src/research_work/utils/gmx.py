@@ -13,6 +13,8 @@ import logging
 import subprocess
 from pathlib import Path
 
+from research_work.utils import console
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +55,12 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
     if maxwarn is not None:
         cmd.extend(["-maxwarn", maxwarn])
 
-    logger.info("%s", "=" * 60)
+    console.cmd(" ".join(cmd))
     logger.info("Running: %s", " ".join(cmd))
-    if interactive:
-        logger.info("  (interactive - follow the prompts below)")
-        logger.info("  (interactive subprocess output is shown in terminal)")
-    elif stdin_lines:
+    if stdin_lines:
         logger.info("  stdin: %s", stdin_lines)
-    logger.info("%s", "=" * 60)
 
     if interactive:
-        # Let gmx talk directly to the user's terminal
         result = subprocess.run(cmd, cwd=work_dir)
     elif stream_output:
         stdin_text = None
@@ -88,7 +85,7 @@ def run_gmx(command: str, args: list[str], stdin_lines: list[str] | None = None,
             capture_output=True,
         )
 
-        # gmx writes most output to stderr
+        # gmx writes most output to stderr; log both to file for debugging
         if result.stdout.strip():
             logger.info("stdout:\n%s", result.stdout.strip())
         if result.stderr.strip():
@@ -116,5 +113,4 @@ def run_shell(cmd: str, work_dir: Path | None = None) -> subprocess.CompletedPro
 
 def pause(message: str = "Press Enter to continue..."):
     """Pause execution and wait for user input."""
-    logger.info(">>> %s", message)
-    input()
+    input(f"  > {message}")
