@@ -13,7 +13,8 @@ import re
 import sys
 import time
 
-from research_work.config import SIM_DIR, LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
+from research_work import config
+from research_work.config import LIGAND_NAME, BOX_DISTANCE, BOX_TYPE
 from research_work.utils import console
 from research_work.utils.gmx import run_gmx
 from research_work.utils.file_edit import append_to_molecules_section
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def edit_topol_add_ligand_include():
-    top_path = SIM_DIR / "topol.top"
+    top_path = config.SIM_DIR / "topol.top"
     lines = top_path.read_text().splitlines(keepends=True)
 
     insert_idx = None
@@ -51,7 +52,7 @@ def edit_topol_add_ligand_include():
 
 
 def edit_topol_add_ligand_molecule():
-    top_path = SIM_DIR / "topol.top"
+    top_path = config.SIM_DIR / "topol.top"
     content = top_path.read_text()
     if re.search(rf"^{LIGAND_NAME}\s+1\s*$", content, re.MULTILINE):
         logger.info("topol.top already has '%s 1' in [ molecules ], skipping.", LIGAND_NAME)
@@ -60,9 +61,9 @@ def edit_topol_add_ligand_molecule():
 
 
 def edit_lig_itp():
-    itp_path = SIM_DIR / "LIG.itp"
+    itp_path = config.SIM_DIR / "LIG.itp"
     if not itp_path.exists():
-        itp_path = SIM_DIR / "lig.itp"
+        itp_path = config.SIM_DIR / "lig.itp"
     if not itp_path.exists():
         logger.error("Neither LIG.itp nor lig.itp found in simulation folder.")
         sys.exit(1)
@@ -96,7 +97,7 @@ def create_box():
     run_gmx(
         "editconf",
         ["-f", "conf.gro", "-d", BOX_DISTANCE, "-bt", BOX_TYPE, "-o", "box.gro"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
     )
     console.produced("box.gro")
 
@@ -105,7 +106,7 @@ def solvate():
     run_gmx(
         "solvate",
         ["-cp", "box.gro", "-cs", "spc216.gro", "-p", "topol.top", "-o", "box_sol.gro"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
     )
     console.produced("box_sol.gro")
 
@@ -130,7 +131,7 @@ def run(detach: bool = False):
 
     console.step_done(time.monotonic() - start)
     if not detach:
-        visualize(SIM_DIR / "box_sol.gro", label="after solvate")
+        visualize(config.SIM_DIR / "box_sol.gro", label="after solvate")
 
 
 if __name__ == "__main__":

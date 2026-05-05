@@ -10,7 +10,8 @@ Corresponds to tutorial lines 195-201:
 import logging
 import time
 
-from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work import config
+from research_work.config import MDP_FILES, MAXWARN
 from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
@@ -24,7 +25,7 @@ def grompp_em(detach: bool = False):
     check_step(
         "grompp",
         ["-f", MDP_FILES["em"], "-c", "box_sol_ion.gro", "-p", "topol.top", "-o", "EM.tpr"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
@@ -32,7 +33,7 @@ def grompp_em(detach: bool = False):
 
 
 def mdrun_em():
-    run_gmx("mdrun", ["-deffnm", "EM"], work_dir=SIM_DIR)
+    run_gmx("mdrun", ["-deffnm", "EM"], work_dir=config.SIM_DIR)
     console.produced("EM.gro, EM.edr, EM.log, EM.trr")
 
 
@@ -47,7 +48,7 @@ def run(detach: bool = False):
 
     console.step_done(time.monotonic() - start)
     if not detach:
-        visualize(SIM_DIR / "EM.gro", label="after energy minimization")
+        visualize(config.SIM_DIR / "EM.gro", label="after energy minimization")
 
 
 if __name__ == "__main__":

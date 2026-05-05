@@ -2,19 +2,21 @@
 Main entry point for the GROMACS MD simulation pipeline.
 
 Usage:
-    run-md                           # Run all steps interactively
-    run-md --step 1                  # Run only step 1
-    run-md --from 3                  # Resume from step 3 onward
-    run-md --no-visualize            # Skip all VMD visualization pauses
-    run-md --windows                 # Use local-VMD backend (no Ray/XPRA)
-    run-md --detach-step8            # Run step 8 mdrun in the background
-    run-md --detach                  # Full detached run: fork into the
+    run-md <sim_dir>                 # Run all steps interactively
+    run-md .                         # Use current directory as sim_dir
+    run-md simulation/               # Use relative path
+    run-md --step 1 <sim_dir>        # Run only step 1
+    run-md --from 3 <sim_dir>        # Resume from step 3 onward
+    run-md --no-visualize <sim_dir>  # Skip all VMD visualization pauses
+    run-md --windows <sim_dir>       # Use local-VMD backend (no Ray/XPRA)
+    run-md --detach-step8 <sim_dir>  # Run step 8 mdrun in the background
+    run-md --detach <sim_dir>        # Full detached run: fork into the
                                      # background, feed config values to
                                      # every interactive prompt, skip VMD
                                      # pauses, and launch step 8 in its
                                      # own background process. The parent
                                      # shell returns immediately; logs
-                                     # are written to SIM_DIR/logs.
+                                     # are written to <sim_dir>/logs.
 """
 
 import argparse
@@ -25,7 +27,6 @@ import sys
 from datetime import datetime
 
 from research_work import config
-from research_work.config import SIM_DIR
 from research_work.steps.step_01_prepare_ligand import run as step_01
 from research_work.steps.step_02_edit_topology import run as step_02
 from research_work.steps.step_03_add_ions import run as step_03
@@ -75,7 +76,7 @@ def _respawn_detached(argv_tail: list[str]) -> None:
     redirected to pipeline_detached_*.out/.err under SIM_DIR/logs) and
     carries the --detached-runner flag so it does not fork again.
     """
-    logs_dir = SIM_DIR / "logs"
+    logs_dir = config.SIM_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     bg_out = logs_dir / f"pipeline_detached_{ts}.out"
@@ -114,12 +115,21 @@ def _respawn_detached(argv_tail: list[str]) -> None:
     print(f"  PID file:       {pid_path}  (pid={proc.pid})")
     print(f"  pipeline log:   {bg_out}")
     print(f"  pipeline errs:  {bg_err}")
-    print(f"  simulation dir: {SIM_DIR}")
-    print("Check progress with: python -m research_work.status")
+    print(f"  simulation dir: {config.SIM_DIR}")
+    print(f"Check progress with: python -m research_work.status {config.SIM_DIR}")
 
 
 def main():
     parser = argparse.ArgumentParser(description="GROMACS MD Simulation Pipeline")
+    parser.add_argument(
+        "sim_dir",
+        metavar="sim_dir",
+        help=(
+            "Path to the simulation directory containing all input files "
+            "(REC.pdb, LIG.pdb, LIG.itp, .mdp files, force field dir). "
+            "Use '.' for the current directory."
+        ),
+    )
     parser.add_argument("--step", type=int, help="Run only this step")
     parser.add_argument("--from", dest="from_step", type=int, help="Start from this step")
     parser.add_argument(
@@ -132,10 +142,10 @@ def main():
         action="store_true",
         help=(
             "Run the entire pipeline in the background. Forks itself, "
-            "redirects output to SIM_DIR/logs, feeds DETACH_* values from "
+            "redirects output to <sim_dir>/logs, feeds DETACH_* values from "
             "config.py to interactive prompts, skips VMD pauses, and "
             "launches step 8 mdrun as its own background process. Check "
-            "progress with: python -m research_work.status"
+            "progress with: python -m research_work.status <sim_dir>"
         ),
     )
     parser.add_argument(
@@ -161,8 +171,13 @@ def main():
     )
     args = parser.parse_args()
 
-    # Propagate runtime flags into the shared config so all modules see them.
-    # Must happen before any step runs.
+    # Resolve and validate sim_dir, then store it in the shared config so all
+    # modules see it. Must happen before any step runs.
+    sim_dir = Path(args.sim_dir).expanduser().resolve()
+    if not sim_dir.is_dir():
+        parser.error(f"sim_dir does not exist or is not a directory: {sim_dir}")
+    config.SIM_DIR = sim_dir
+
     if args.windows:
         config.WINDOWS_MODE = True
     if args.no_visualize:
@@ -178,7 +193,7 @@ def main():
         _respawn_detached(sys.argv[1:])
         return
 
-    log_file = setup_logging(SIM_DIR / "logs")
+    log_file = setup_logging(config.SIM_DIR / "logs")
     print(f"  Log file: {log_file}")
     if args.detach:
         logger.info("Detached pipeline runner started (PID %s).", os.getpid())
@@ -205,7 +220,7 @@ def main():
     if step_8_detached:
         print("Pipeline foreground steps complete.")
         print("Step 8 (production MD) is running in the background -- NOT done yet.")
-        print("Check progress with: python -m research_work.status")
+        print(f"Check progress with: python -m research_work.status {config.SIM_DIR}")
     else:
         print("Pipeline complete.")
 

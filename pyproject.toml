@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-run-md = "research_work.run_md:main"
+md-simulation = "research_work.md_simulation:main"
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]

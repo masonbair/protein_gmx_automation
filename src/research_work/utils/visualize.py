@@ -30,6 +30,8 @@ from research_work.config import (
 )
 
 
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,19 +69,15 @@ sys.exit(rc)
 
 
 def resolve_structure_path(path_arg: str) -> Path:
-    """Resolve a structure path from CLI input.
-
-    Priority:
-    1. As provided (relative to current working directory)
-    2. Relative to SIM_DIR
-    """
+    """Resolve a structure path: first as-given, then relative to config.SIM_DIR."""
     candidate = Path(path_arg).expanduser()
     if candidate.exists():
         return candidate
 
-    sim_candidate = (SIM_DIR / candidate).resolve()
-    if sim_candidate.exists():
-        return sim_candidate
+    if config.SIM_DIR is not None:
+        sim_candidate = (config.SIM_DIR / candidate).resolve()
+        if sim_candidate.exists():
+            return sim_candidate
 
     return candidate
 

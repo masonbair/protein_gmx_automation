@@ -16,8 +16,8 @@ Corresponds to tutorial lines 203-240:
 import logging
 import time
 
+from research_work import config
 from research_work.config import (
-    SIM_DIR,
     DETACH_MAKE_NDX_LIGAND,
     DETACH_GENRESTR_LIGAND_GROUP,
     DETACH_MAKE_NDX_SYSTEM,
@@ -39,7 +39,7 @@ def ligand_itp_has_inline_restraints() -> bool:
     restraints outside any [moleculetype] and grompp errors with
     "Atom index ... out of bounds".
     """
-    lig_itp = SIM_DIR / "LIG.itp"
+    lig_itp = config.SIM_DIR / "LIG.itp"
     if not lig_itp.exists():
         return False
     text = lig_itp.read_text()
@@ -53,14 +53,14 @@ def make_ligand_index(detach: bool = False):
             "make_ndx",
             ["-f", "LIG.gro", "-o", "index_LIG.ndx"],
             stdin_lines=list(DETACH_MAKE_NDX_LIGAND),
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
         )
     else:
         console.hint("Type '0 & ! a H*' then 'q' to create the non-hydrogen ligand group.")
         run_gmx(
             "make_ndx",
             ["-f", "LIG.gro", "-o", "index_LIG.ndx"],
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
             interactive=True,
         )
     console.produced("index_LIG.ndx")
@@ -73,21 +73,21 @@ def genrestr_ligand(detach: bool = False):
             "genrestr",
             ["-f", "LIG.gro", "-n", "index_LIG.ndx", "-o", "posre_LIG.itp", "-fc", "1000", "1000", "1000"],
             stdin_lines=[DETACH_GENRESTR_LIGAND_GROUP],
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
         )
     else:
         console.hint("Pick the non-hydrogen ligand group you just created (often group 3).")
         run_gmx(
             "genrestr",
             ["-f", "LIG.gro", "-n", "index_LIG.ndx", "-o", "posre_LIG.itp", "-fc", "1000", "1000", "1000"],
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
             interactive=True,
         )
     console.produced("posre_LIG.itp")
 
 
 def edit_topology_for_ligand_posres():
-    add_ligand_posres_include(SIM_DIR / "LIG.itp", itp_name="posre_LIG.itp")
+    add_ligand_posres_include(config.SIM_DIR / "LIG.itp", itp_name="posre_LIG.itp")
 
 
 def make_system_index(detach: bool = False):
@@ -97,14 +97,14 @@ def make_system_index(detach: bool = False):
             "make_ndx",
             ["-f", "EM.gro", "-o", "index.ndx"],
             stdin_lines=list(DETACH_MAKE_NDX_SYSTEM),
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
         )
     else:
         console.hint("Read the group list, type your combination (e.g. '1 | 13'), then 'q'.")
         run_gmx(
             "make_ndx",
             ["-f", "EM.gro", "-o", "index.ndx"],
-            work_dir=SIM_DIR,
+            work_dir=config.SIM_DIR,
             interactive=True,
         )
     console.produced("index.ndx")

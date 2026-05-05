@@ -9,7 +9,8 @@ Step 6: NVT equilibration.
 import logging
 import time
 
-from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work import config
+from research_work.config import MDP_FILES, MAXWARN
 from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
@@ -22,7 +23,7 @@ def grompp_nvt(detach: bool = False):
     check_step(
         "grompp",
         ["-f", MDP_FILES["nvt"], "-c", "EM.gro", "-r", "EM.gro", "-p", "topol.top", "-n", "index.ndx", "-o", "NVT.tpr"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
@@ -30,7 +31,7 @@ def grompp_nvt(detach: bool = False):
 
 
 def mdrun_nvt():
-    run_gmx("mdrun", ["-deffnm", "NVT"], work_dir=SIM_DIR)
+    run_gmx("mdrun", ["-deffnm", "NVT"], work_dir=config.SIM_DIR)
     console.produced("NVT.gro, NVT.edr, NVT.cpt, NVT.log, NVT.trr")
 
 

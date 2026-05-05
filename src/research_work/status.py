@@ -4,11 +4,11 @@ Pipeline status inspector.
 Shows the current state of a (possibly detached) MD run. Meant to be
 invoked as:
 
-    python -m research_work.status
-    python -m research_work.status -n 40            # more tail lines
-    python -m research_work.status --follow         # refresh in place
+    python -m research_work.status <sim_dir>
+    python -m research_work.status . -n 40          # more tail lines
+    python -m research_work.status . --follow       # refresh in place
 
-It looks at SIM_DIR/logs and reports:
+It looks at <sim_dir>/logs and reports:
   * whether the detached step 8 mdrun wrapper is still alive (PID check),
   * a tail of the most recent pipeline_*.log,
   * a tail of step8_mdrun.out (the live mdrun output).
@@ -21,9 +21,6 @@ import os
 import sys
 import time
 from pathlib import Path
-
-from research_work.config import SIM_DIR
-
 
 def pid_alive(pid: int) -> bool:
     """Return True if a process with this PID is running.
@@ -70,11 +67,11 @@ def _print_section(title: str) -> None:
     print("-" * 60)
 
 
-def show_status(n_lines: int, out=sys.stdout) -> None:
-    logs_dir = SIM_DIR / "logs"
+def show_status(sim_dir: Path, n_lines: int, out=sys.stdout) -> None:
+    logs_dir = sim_dir / "logs"
 
     print("=" * 60, file=out)
-    print(f"MD pipeline status  (SIM_DIR = {SIM_DIR})", file=out)
+    print(f"MD pipeline status  (sim_dir = {sim_dir})", file=out)
     print(f"Checked at:         {time.strftime('%Y-%m-%d %H:%M:%S')}", file=out)
     print("=" * 60, file=out)
 
@@ -123,6 +120,11 @@ def main() -> None:
         description="Show the current status of the MD pipeline.",
     )
     parser.add_argument(
+        "sim_dir",
+        metavar="sim_dir",
+        help="Path to the simulation directory (same one passed to run-md).",
+    )
+    parser.add_argument(
         "-n", "--lines", type=int, default=20,
         help="Number of tail lines to show per section (default: 20).",
     )
@@ -136,15 +138,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    sim_dir = Path(args.sim_dir).expanduser().resolve()
+    if not sim_dir.is_dir():
+        parser.error(f"sim_dir does not exist or is not a directory: {sim_dir}")
+
     if not args.follow:
-        show_status(args.lines)
+        show_status(sim_dir, args.lines)
         return
 
     try:
         while True:
-            # Clear the screen between refreshes so the status stays in place.
             os.system("clear" if os.name == "posix" else "cls")
-            show_status(args.lines)
+            show_status(sim_dir, args.lines)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("\nStopped.")

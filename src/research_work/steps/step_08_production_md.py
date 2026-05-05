@@ -20,7 +20,8 @@ import subprocess
 import sys
 import time
 
-from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work import config
+from research_work.config import MDP_FILES, MAXWARN
 from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
@@ -34,7 +35,7 @@ def grompp_md(detach: bool = False):
     check_step(
         "grompp",
         ["-f", MDP_FILES["md"], "-c", "NPT.gro", "-t", "NPT.cpt", "-p", "topol.top", "-n", "index.ndx", "-o", "MD.tpr"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
@@ -48,11 +49,11 @@ def mdrun_md(detach: bool = False):
         gmx mdrun -s MD.tpr -cpi MD.cpt -deffnm MD -append -v
     """
     if not detach:
-        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR, stream_output=True)
+        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=config.SIM_DIR, stream_output=True)
         console.produced("MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
         return
 
-    logs_dir = SIM_DIR / "logs"
+    logs_dir = config.SIM_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     out_path = logs_dir / "step8_mdrun.out"
     err_path = logs_dir / "step8_mdrun.err"
@@ -73,7 +74,7 @@ def mdrun_md(detach: bool = False):
     with open(out_path, "a", encoding="utf-8") as out_f, open(err_path, "a", encoding="utf-8") as err_f:
         proc = subprocess.Popen(
             cmd,
-            cwd=SIM_DIR,
+            cwd=config.SIM_DIR,
             stdin=subprocess.DEVNULL,
             stdout=out_f,
             stderr=err_f,
@@ -98,13 +99,13 @@ def run(detach: bool = False):
 
     if detach:
         console.step_done(time.monotonic() - start, note="mdrun running in background")
-        console.info("Check progress: python -m research_work.status")
+        console.info(f"Check progress: python -m research_work.status {config.SIM_DIR}")
         console.info("Final VMD visualization will launch automatically when mdrun finishes.")
         return
 
     console.step_done(time.monotonic() - start)
     console.info("Launching final visualization of the production trajectory...")
-    visualize(SIM_DIR / "MD.gro", label="final production MD")
+    visualize(config.SIM_DIR / "MD.gro", label="final production MD")
 
 
 def _detached_run():
@@ -121,21 +122,21 @@ def _detached_run():
     """
     from research_work.utils.logging_setup import setup_logging
 
-    log_file = setup_logging(SIM_DIR / "logs")
+    log_file = setup_logging(config.SIM_DIR / "logs")
     logger.info("=" * 60)
     logger.info("STEP 8 [detached]: Production MD (background wrapper)")
     logger.info("=" * 60)
     logger.info("Detached runner log: %s", log_file)
 
     try:
-        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR, stream_output=True)
+        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=config.SIM_DIR, stream_output=True)
         logger.info("Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
     except SystemExit:
         logger.error("mdrun failed in detached mode - skipping visualization.")
         raise
 
     logger.info("Detached mdrun complete - launching final visualization...")
-    visualize(SIM_DIR / "MD.gro", label="final production MD (detached)", force=True)
+    visualize(config.SIM_DIR / "MD.gro", label="final production MD (detached)", force=True)
     logger.info("Detached step 8 finished.")
 
 

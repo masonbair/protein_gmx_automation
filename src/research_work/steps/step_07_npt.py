@@ -9,7 +9,8 @@ Step 7: NPT equilibration.
 import logging
 import time
 
-from research_work.config import SIM_DIR, MDP_FILES, MAXWARN
+from research_work import config
+from research_work.config import MDP_FILES, MAXWARN
 from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
@@ -22,7 +23,7 @@ def grompp_npt(detach: bool = False):
     check_step(
         "grompp",
         ["-f", MDP_FILES["npt"], "-c", "NVT.gro", "-r", "NVT.gro", "-p", "topol.top", "-n", "index.ndx", "-o", "NPT.tpr"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
@@ -30,7 +31,7 @@ def grompp_npt(detach: bool = False):
 
 
 def mdrun_npt():
-    run_gmx("mdrun", ["-deffnm", "NPT"], work_dir=SIM_DIR)
+    run_gmx("mdrun", ["-deffnm", "NPT"], work_dir=config.SIM_DIR)
     console.produced("NPT.gro, NPT.edr, NPT.cpt, NPT.log, NPT.trr")
 
 

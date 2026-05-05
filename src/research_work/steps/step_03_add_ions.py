@@ -11,7 +11,8 @@ Corresponds to tutorial lines 180-193:
 import logging
 import time
 
-from research_work.config import SIM_DIR, MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
+from research_work import config
+from research_work.config import MDP_FILES, ION_CONCENTRATION, GENION_GROUP, MAXWARN
 from research_work.utils import console
 from research_work.utils.check_step import check_step
 from research_work.utils.gmx import run_gmx
@@ -25,7 +26,7 @@ def grompp_ions(detach: bool = False):
     check_step(
         "grompp",
         ["-f", MDP_FILES["ions"], "-c", "box_sol.gro", "-p", "topol.top", "-o", "ION.tpr"],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
         default_maxwarn=MAXWARN,
         detach=detach,
     )
@@ -37,7 +38,7 @@ def genion():
         "genion",
         ["-s", "ION.tpr", "-p", "topol.top", "-conc", ION_CONCENTRATION, "-neutral", "-o", "box_sol_ion.gro"],
         stdin_lines=[GENION_GROUP],
-        work_dir=SIM_DIR,
+        work_dir=config.SIM_DIR,
     )
     console.produced("box_sol_ion.gro")
 
@@ -53,7 +54,7 @@ def run(detach: bool = False):
 
     console.step_done(time.monotonic() - start)
     if not detach:
-        visualize(SIM_DIR / "box_sol_ion.gro", label="after genion")
+        visualize(config.SIM_DIR / "box_sol_ion.gro", label="after genion")
 
 
 if __name__ == "__main__":
