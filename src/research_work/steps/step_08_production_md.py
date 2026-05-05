@@ -52,7 +52,7 @@ def mdrun_md(detach: bool = False):
         gmx mdrun -s MD.tpr -cpi MD.cpt -deffnm MD -append -v
     """
     if not detach:
-        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR)
+        run_gmx("mdrun", ["-deffnm", "MD", "-v"], work_dir=SIM_DIR, stream_output=True)
         logger.info("  -> Produced: MD.gro, MD.xtc, MD.edr, MD.cpt, MD.log")
         return
 
