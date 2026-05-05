@@ -2,11 +2,13 @@
 Main entry point for the GROMACS MD simulation pipeline.
 
 Usage:
-    python run_md.py                 # Run all steps interactively
-    python run_md.py --step 1        # Run only step 1
-    python run_md.py --from 3        # Resume from step 3 onward
-    python run_md.py --detach-step8  # Run step 8 mdrun in the background
-    python run_md.py --detach        # Full detached run: fork into the
+    run-md                           # Run all steps interactively
+    run-md --step 1                  # Run only step 1
+    run-md --from 3                  # Resume from step 3 onward
+    run-md --no-visualize            # Skip all VMD visualization pauses
+    run-md --windows                 # Use local-VMD backend (no Ray/XPRA)
+    run-md --detach-step8            # Run step 8 mdrun in the background
+    run-md --detach                  # Full detached run: fork into the
                                      # background, feed config values to
                                      # every interactive prompt, skip VMD
                                      # pauses, and launch step 8 in its
@@ -146,6 +148,12 @@ def main():
         ),
     )
     parser.add_argument(
+        "--no-visualize",
+        action="store_true",
+        dest="no_visualize",
+        help="Skip all VMD visualization pauses during the run.",
+    )
+    parser.add_argument(
         "--detached-runner",
         action="store_true",
         dest="detached_runner",
@@ -153,10 +161,12 @@ def main():
     )
     args = parser.parse_args()
 
-    # Propagate --windows into the shared config so visualize.py and the
-    # step-8 detach path can see it. Must happen before any step runs.
+    # Propagate runtime flags into the shared config so all modules see them.
+    # Must happen before any step runs.
     if args.windows:
         config.WINDOWS_MODE = True
+    if args.no_visualize:
+        config.PAUSE_FOR_VISUALIZATION = False
 
     # Parent side of --detach: respawn ourselves in the background and
     # return. Everything below this point runs only in the interactive

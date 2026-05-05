@@ -31,12 +31,9 @@ MAXWARN = "2"
 
 # --- Visualization ---
 VMD_COMMAND = "vmd"
-PAUSE_FOR_VISUALIZATION = True  # Set False to skip VMD pauses
-
-# --- Platform mode ---
-# Toggled True by `python -m research_work.run_md --windows`. When set,
-# visualization skips the Ray/XPRA path and launches VMD locally, and
-# detached subprocess spawns use Windows-compatible flags.
+# Runtime default — use `--no-visualize` CLI flag to disable.
+PAUSE_FOR_VISUALIZATION = True
+# Runtime default — use `--windows` CLI flag to enable.
 WINDOWS_MODE = False
 
 # --- Detached Mode Defaults ---
