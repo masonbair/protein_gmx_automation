@@ -52,8 +52,18 @@ def check_step(command: str, args: list[str], work_dir: Path | None = None,
 
     stderr = result.stderr or ""
     if "warning" not in stderr.lower():
-        logger.error("gmx %s failed for reasons other than warnings. See output above.", command)
+        if stderr.strip():
+            print()
+            print(stderr.strip())
+            print()
+        logger.error("gmx %s failed for reasons other than warnings.", command)
         raise SystemExit(1)
+
+    # Print the captured GROMACS output so the user can read the warnings.
+    if stderr.strip():
+        print()
+        print(stderr.strip())
+        print()
 
     if detach:
         if default_maxwarn is None:
@@ -83,7 +93,7 @@ def _prompt_for_maxwarn(command: str, default_maxwarn: str | None) -> str:
     chooses to abort or supplies an invalid value.
     """
     print()
-    print("  ! gmx", command, "failed due to warning(s). Review the output above.")
+    print(f"  ! gmx {command} emitted warning(s) -- see output above.")
     if default_maxwarn is not None:
         print(f"    Press Enter to retry with -maxwarn {default_maxwarn},")
         print("    or enter a different number, or type 'q' to abort.")
