@@ -1,11 +1,15 @@
 """
-Interactive warning review for gmx steps.
+Interactive warning/note review for gmx steps.
 
 The research workflow starts every grompp-style call with no -maxwarn.
-If GROMACS emits warnings, the command fails - at which point the user
-needs to read the warnings, judge whether they are safe to ignore, and
-either abort or rerun with -maxwarn <N>. This utility drives that
-pause-and-decide loop so every step gets the same treatment.
+If GROMACS emits warnings the command fails — the user reads the output,
+judges whether the warnings are safe, and either aborts or reruns with
+-maxwarn <N>.
+
+GROMACS also emits NOTEs on otherwise-successful runs.  Notes never
+cause a non-zero exit, but they can indicate important issues (e.g. bad
+MDP settings).  This utility pauses on notes too so the user can review
+them before the pipeline continues.
 """
 
 import logging
@@ -18,28 +22,47 @@ from research_work.utils.gmx import run_gmx
 logger = logging.getLogger(__name__)
 
 
+def _has_warnings(stderr: str) -> bool:
+    return "warning" in stderr.lower()
+
+
+def _has_notes(stderr: str) -> bool:
+    # GROMACS always writes "NOTE" in uppercase; checking case-sensitively
+    # avoids false positives from the word "note" in other contexts.
+    return "NOTE" in stderr
+
+
+def _print_gmx_output(stderr: str) -> None:
+    if stderr.strip():
+        print()
+        print(stderr.strip())
+        print()
+
+
 def check_step(command: str, args: list[str], work_dir: Path | None = None,
                stdin_lines: list[str] | None = None,
                default_maxwarn: str | None = None,
                detach: bool = False) -> None:
     """
-    Run a gmx command and gate on warnings.
+    Run a gmx command and gate on warnings and notes.
 
-    Runs once with no -maxwarn. If the command succeeds, returns. If it
-    fails for a non-warning reason, aborts. If it fails because of
-    warnings, the warnings are already in the log - prompt the user to
-    either abort or supply a -maxwarn value and rerun.
+    On success with no notes: returns immediately.
+    On success with NOTEs: prints the output and prompts the user to
+        continue or abort (notes never require -maxwarn).
+    On failure due to warnings/notes: prints the output and prompts for
+        a -maxwarn value, then retries.
+    On failure for other reasons: prints the output and aborts.
 
     Parameters
     ----------
     command, args, work_dir, stdin_lines
         Forwarded to run_gmx.
     default_maxwarn
-        Value used if the user presses Enter at the prompt. If None,
-        pressing Enter aborts.
+        Value used if the user presses Enter at the warning prompt. If
+        None, pressing Enter aborts.
     detach
-        If True, skip the interactive prompt entirely: auto-retry with
-        default_maxwarn if it's set, otherwise abort.
+        If True, skip interactive prompts: auto-continue past notes and
+        auto-retry with default_maxwarn on warnings.
     """
     result = run_gmx(
         command, args,
@@ -47,27 +70,33 @@ def check_step(command: str, args: list[str], work_dir: Path | None = None,
         stdin_lines=stdin_lines,
         check=False,
     )
-    if result.returncode == 0:
-        return
 
     stderr = result.stderr or ""
-    if "warning" not in stderr.lower():
-        if stderr.strip():
-            print()
-            print(stderr.strip())
-            print()
-        logger.error("gmx %s failed for reasons other than warnings.", command)
+
+    if result.returncode == 0:
+        if _has_notes(stderr):
+            _print_gmx_output(stderr)
+            if detach:
+                console.warn(f"gmx {command} printed note(s) -- continuing in detach mode.")
+                logger.warning("gmx %s printed note(s); continuing (detach).", command)
+            else:
+                _prompt_for_note(command)
+        return
+
+    # Non-zero exit: decide whether it's warning/note related or a hard error.
+    if not _has_warnings(stderr) and not _has_notes(stderr):
+        _print_gmx_output(stderr)
+        logger.error("gmx %s failed for reasons other than warnings/notes.", command)
         raise SystemExit(1)
 
-    # Print the captured GROMACS output so the user can read the warnings.
-    if stderr.strip():
-        print()
-        print(stderr.strip())
-        print()
+    _print_gmx_output(stderr)
 
     if detach:
         if default_maxwarn is None:
-            logger.error("gmx %s emitted warnings; no default maxwarn set - aborting (detach mode).", command)
+            logger.error(
+                "gmx %s emitted warnings; no default maxwarn set - aborting (detach mode).",
+                command,
+            )
             raise SystemExit(1)
         console.warn(f"gmx {command} emitted warnings; auto-retrying with -maxwarn {default_maxwarn}.")
         logger.warning("gmx %s emitted warnings; auto-retrying with -maxwarn %s.", command, default_maxwarn)
@@ -83,6 +112,19 @@ def check_step(command: str, args: list[str], work_dir: Path | None = None,
         stdin_lines=stdin_lines,
         maxwarn=maxwarn,
     )
+
+
+def _prompt_for_note(command: str) -> None:
+    """Pause after a NOTE so the user can decide whether to continue."""
+    print(f"  > gmx {command} printed note(s) -- review above.")
+    print("    Press Enter to continue or 'q' to abort.")
+    try:
+        response = input("  continue [Enter/q] > ").strip()
+    except EOFError:
+        response = ""
+    if response.lower() in ("q", "quit", "abort", "n", "no"):
+        logger.error("User chose to abort after reviewing note.")
+        raise SystemExit(1)
 
 
 def _prompt_for_maxwarn(command: str, default_maxwarn: str | None) -> str:
