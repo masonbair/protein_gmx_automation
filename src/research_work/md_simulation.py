@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from research_work import config
 from research_work.steps.step_01_prepare_ligand import run as step_01
